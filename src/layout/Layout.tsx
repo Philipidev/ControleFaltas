@@ -94,10 +94,24 @@ export function Layout({ ehAdmin, pendencias = 0 }: { ehAdmin: boolean; pendenci
         <Outlet />
       </div>
 
-      {/* Barra inferior — mobile */}
+      {/*
+        Barra inferior — mobile.
+
+        O padding é `max(inset, 0.5rem)` e não o inset puro, porque o inset
+        varia demais entre aparelhos e em metade deles é ZERO:
+
+          iPhone com indicador de gesto ..... 34px → 48 + 34 = 82
+          Android com navegação por gestos .. ~24px → 48 + 24 = 72
+          Android com 3 botões .............. 0    → 48 +  8 = 56
+          iPhone SE / com botão home ........ 0    → 48 +  8 = 56
+
+        Sem o piso de 8px, os dois últimos casos colavam os rótulos na borda
+        da tela. Com ele, a altura total fica entre 56 e 82 em todo aparelho —
+        dentro da faixa das barras nativas (56dp no Material, 83pt no iOS).
+      */}
       <nav
         aria-label="Navegação principal"
-        className="area-segura-base fixed inset-x-0 bottom-0 z-30 border-t border-borda bg-fundo/90 backdrop-blur-xl lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 border-t border-borda bg-fundo/90 pb-[max(env(safe-area-inset-bottom,0px),0.5rem)] backdrop-blur-xl lg:hidden"
       >
         <ul className="mx-auto flex max-w-2xl">
           {PRINCIPAIS.map((d) => (
@@ -158,8 +172,17 @@ function ItemInferior({ destino, contador }: { destino: Destino; contador: numbe
       end={destino.para === '/'}
       className={({ isActive }) =>
         cn(
-          // 56px de altura: alvo de toque confortável mesmo em movimento
-          'relative flex h-14 flex-col items-center justify-center gap-0.5 text-[0.625rem] font-bold transition-colors',
+          /*
+           * 48px, não 56px.
+           *
+           * A altura visível é isto MAIS o env(safe-area-inset-bottom) do
+           * aparelho — no iPhone com indicador de gesto são ~34px. Com 56 a
+           * barra chegava a ~90px, contra os ~83pt da barra de abas do
+           * próprio iOS, e o miolo (ícone de 20px + rótulo de 10px) ficava
+           * boiando no meio. 48 alinha com a convenção e continua acima dos
+           * 44pt mínimos de alvo de toque da Apple.
+           */
+          'relative flex h-12 flex-col items-center justify-center gap-0.5 text-[0.625rem] font-bold transition-colors',
           isActive ? 'text-acento' : 'text-texto-fraco',
         )
       }
