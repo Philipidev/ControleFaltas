@@ -6,6 +6,10 @@ permite comparar presença com a turma **sem expor número nenhum de ninguém**.
 
 Vite + React 19 + TypeScript strict · Supabase (Postgres + Auth + Storage + RLS) · PWA.
 
+> **Retomando o trabalho?** Leia [`CONTINUAR.md`](./CONTINUAR.md) primeiro. Ele tem o bug
+> aberto (espaço extra na barra inferior do PWA no iPhone), como usar o diagnóstico que já
+> está em produção para identificá-lo, e o que ficou sem teste real.
+
 ---
 
 ## Rodando
