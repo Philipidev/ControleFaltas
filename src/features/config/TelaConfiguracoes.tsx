@@ -1,6 +1,7 @@
 import { LogOut } from 'lucide-react'
 import type { CSSProperties } from 'react'
 
+import { DiagnosticoViewport } from './DiagnosticoViewport.tsx'
 import { ResetSemestre } from './ResetSemestre.tsx'
 import { SeletorTema } from '@/components/SeletorTema.tsx'
 import { Botao } from '@/components/ui/Botao.tsx'
@@ -125,6 +126,8 @@ export function TelaConfiguracoes() {
         )}
 
         <ResetSemestre />
+
+        <DiagnosticoViewport />
 
         <Botao
           variante="secundario"
