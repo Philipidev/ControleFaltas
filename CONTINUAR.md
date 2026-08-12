@@ -67,35 +67,59 @@ ilustração**.
   fundo da própria página para pintar o que está fora dela.
 - O indicador de gesto não aparece no print, o que continua sem explicação.
 
-### A pergunta que sobrou
+### A pergunta que sobrou — e a resposta do aparelho
 
-**O WebKit desenha dentro da faixa de 44px?**
+**O WebKit desenha dentro da faixa de 44px?** Se sim (modelo de "obscured
+insets", como o conteúdo que passa por baixo da barra translúcida do Safari),
+bastaria puxar a barra para lá. Se não, puxar corta a barra.
 
-- Se **sim** (modelo de "obscured insets", como o conteúdo que passa por baixo
-  da barra translúcida do Safari): a superfície tem os 956px e basta puxar a
-  barra para dentro da faixa. Fica com a geometria da barra de abas nativa.
-- Se **não**: a superfície tem 912px mesmo, e puxar a barra corta 44px dela.
-  Aí o certo é só descontar o inset, que naquele caso não protege nada.
+Foram ao ar três modos num seletor dentro do diagnóstico — `normal`, `rasa`,
+`puxada` — e o teste foi feito no aparelho em 12/08/2026.
 
-Não dá para responder isso do Windows, e as duas correções são incompatíveis.
-Por isso foi ao ar um **seletor de modo** dentro do Diagnóstico do aparelho:
+**Resposta: não desenha.** Com `puxada`, a última linha do print com qualquer
+pixel claro cai em 911,5pt: a tinta some **no meio dos ícones**, no fim exato
+do viewport. Os rótulos não sumiram por bug de layout, foram cortados pela
+borda da superfície. Nos outros dois modos a tinta termina onde os rótulos
+terminam (870pt no `normal`, 896pt no `rasa`), com o esmaecimento natural do
+texto.
 
-| Modo | O que faz |
-|---|---|
-| `normal` | comportamento antigo, para comparar |
-| `rasa` | desconta a faixa do recuo (**padrão** — melhora sem risco de corte) |
-| `puxada` | joga a barra para dentro da faixa, até a borda física |
+Ou seja: **os 44px pertencem ao iOS**, que os pinta com a cor de fundo da
+página. O app não os alcança.
 
-**Como decidir:** com `puxada`, olhar o aparelho. Barra encostada na borda e
-rótulos inteiros → o iOS desenha na faixa, `puxada` é a correção. Barra cortada
-ou rótulos comidos → `rasa` é a correção. Os números do diagnóstico *não*
-respondem isso: `barra: base em` vira 956 e `sobra` vira −44 de qualquer jeito,
-porque é o que o CSS pediu. Quem responde é o olho.
+A correção que sobrou, e que está no CSS: `.barra-inferior` desconta a faixa
+do `safe-area-inset-bottom`. Com a faixa no meio, o indicador de gesto não
+encosta na barra, e reservar 34px para ele era empilhar vazio em cima de
+vazio. A barra caiu de 83px para 57px de altura e os rótulos desceram 26px.
+
+**O que ainda não dá para fazer:** encostar o menu na borda física. Sobram
+~60px entre os rótulos e o vidro (44 do iOS + 8 do recuo mínimo + a métrica do
+texto), e nenhum CSS alcança isso.
+
+### O erro que o teste também pegou
+
+No mesmo print, `barra: base em 974px` e `sobra −62px` — devia ser 956/−44. A
+faixa tinha sido medida **cedo demais**: no boot o iOS reporta `innerHeight` de
+894 (o viewport pequeno), 956 − 894 = 62, e nenhum `resize` veio corrigir
+depois. Agora `observarFaixaFantasma` remede no quadro seguinte, no `load` e no
+`resize` do `visualViewport`. Não afetou a correção (o `max()` clampa nos dois
+casos), mas o número estava errado.
+
+### Uma descoberta lateral, ainda em aberto
+
+`clientHeight do html` = **894**, enquanto o viewport tem 912. É o
+comportamento correto: por especificação o bloco de contenção inicial segue o
+viewport *pequeno*. Só que `body { min-height: 100dvh }` pede 912, e a casca do
+Layout é `h-dvh` — os dois estouram o ICB em 18px, e é por isso que o
+diagnóstico mostra **`documento rola: true`** com `scrollHeight` de 912.
+
+São 18px de rolagem do documento inteiro dentro de um app que foi desenhado
+para não ter nenhuma. É a versão pequena do bug que `h-dvh overflow-hidden`
+tinha ido matar. Não incomoda hoje; se o efeito elástico voltar a aparecer, é
+aqui que se olha primeiro.
 
 O código: `src/features/pwa/faixaFantasma.ts` (mede a faixa e publica
-`--faixa-fantasma`, com teste da função pura), as três regras de
-`.barra-inferior` em `src/styles/index.css`, e o seletor em
-`DiagnosticoViewport.tsx`.
+`--faixa-fantasma`, com teste da função pura) e a regra `.barra-inferior` em
+`src/styles/index.css`.
 
 ### O que a medição já descartou
 
@@ -112,16 +136,30 @@ O código: `src/features/pwa/faixaFantasma.ts` (mede a faixa e publica
   de 62px só é diferente de zero por causa deles, e o conteúdo sobe até o topo
   físico da tela.
 
-### Depois de resolver
+### O que fica
 
-1. Fixar o modo vencedor direto no CSS, apagar os outros dois e o seletor de
-   modo no diagnóstico — o experimento acaba junto com a dúvida.
-2. **O diagnóstico em si fica.** Decisão do usuário em 12/08/2026: a tela de
-   números continua em Ajustes depois do bug fechado. Ela é a única janela
-   para dentro de um PWA no iPhone — não há console nem barra de URL lá — e o
-   custo é uma seção recolhida no fim de uma tela secundária.
-3. `faixaFantasma.ts` fica de qualquer jeito: a medição é o que sustenta a
-   correção, não instrumentação.
+- **O diagnóstico.** Decisão do usuário em 12/08/2026: a tela de números
+  continua em Ajustes depois do bug fechado. É a única janela para dentro de um
+  PWA no iPhone — não há console nem barra de URL lá — e o custo é uma seção
+  recolhida no fim de uma tela secundária. O seletor de modos foi embora com o
+  experimento; os números ficaram.
+- **`faixaFantasma.ts`.** A medição sustenta a correção, não é instrumentação.
+
+### Se alguém quiser os 44px de volta
+
+Não foi tentado, e nenhuma das ideias é barata:
+
+- `height=device-height` no `<meta viewport>`, só em standalone. É a receita
+  antiga para viewport curto no iOS. Risco: se o viewport passar a 956 mas a
+  superfície continuar em 912, o corte volta — igualzinho ao `puxada`.
+- Forçar a retração do chrome fantasma dando ao **documento** o que rolar. O
+  trio `svh 894 / dvh 912 / vh 956` é de navegador com barra retrátil, e 912 =
+  894 + os 18px que o documento hoje rola. A coincidência é boa demais para ser
+  ignorada, mas a saída depende de rolagem do documento — exatamente o que a
+  casca `h-dvh overflow-hidden` existe para impedir.
+- Assumir a faixa como projeto: barra flutuante, arredondada e afastada das
+  bordas, no estilo do iOS 26. Aí os 44px viram margem intencional em vez de
+  defeito. É mudança de visual, não de layout.
 
 ---
 

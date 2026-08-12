@@ -184,39 +184,31 @@
      Barra inferior — e a faixa que o iOS reserva embaixo sem usar.
 
      `--faixa-fantasma` é medida em runtime por features/pwa/faixaFantasma.ts:
-     no iPhone em modo aplicativo o viewport é mais curto que a tela, então
-     `bottom: 0` não é a borda do aparelho. O módulo explica o porquê; aqui
-     ficam as três reações possíveis, porque só o aparelho responde se o
-     WebKit desenha dentro da faixa.
+     no iPhone em modo aplicativo o viewport é mais curto que a tela, e
+     `bottom: 0` para 44px antes da borda do aparelho. Empurrar a barra para
+     dentro da faixa foi testado no aparelho e **não funciona** — a superfície
+     acaba ali, e o print mostrou a tinta sumindo no meio dos ícones.
+
+     O que dá para corrigir é o recuo. Com a faixa no meio, o indicador de
+     gesto não encosta na barra, e os 34px de `safe-area-inset-bottom` viram
+     espaço vazio empilhado em cima de espaço vazio. Descontar a faixa do
+     inset devolve esses 34px.
+
+     O piso de 0.5rem é o que mantém os rótulos descolados da borda nos
+     aparelhos em que o inset é zero (iPhone com botão home, Android com três
+     botões) — e é ele que vale sempre que o desconto zera.
 
      `bottom` e `padding-bottom` moram AQUI, e não em utilitárias no JSX: no
      Tailwind v4 a camada `utilities` vence `components` por ordem de camada,
-     não por especificidade — um `bottom-0` no atributo class ganharia destes
-     seletores por mais específicos que fossem.
-
-     O piso de 0.5rem no recuo é o que mantém os rótulos descolados da borda
-     nos aparelhos em que o inset é zero (iPhone com botão home, Android com
-     três botões).
+     não por especificidade, então um `bottom-0` no atributo class ganharia
+     desta regra.
      ------------------------------------------------------------------ */
   .barra-inferior {
     bottom: 0;
-    padding-bottom: max(env(safe-area-inset-bottom, 0px), 0.5rem);
-  }
-
-  /* Desconta a faixa do recuo: o indicador de gesto está do outro lado dela,
-     e não encosta na barra. */
-  html[data-barra='rasa'] .barra-inferior {
     padding-bottom: max(
       calc(env(safe-area-inset-bottom, 0px) - var(--faixa-fantasma, 0px)),
       0.5rem
     );
-  }
-
-  /* Empurra a barra para dentro da faixa, até a borda física do aparelho. O
-     recuo volta a ser o inset inteiro, que aí cai exatamente sobre o
-     indicador de gesto — a geometria da barra de abas nativa do iOS. */
-  html[data-barra='puxada'] .barra-inferior {
-    bottom: calc(-1 * var(--faixa-fantasma, 0px));
   }
 
   /* Área segura do notch/gesture bar quando instalado como PWA */

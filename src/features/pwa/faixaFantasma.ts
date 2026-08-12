@@ -14,11 +14,15 @@
  * recuo para um indicador de gesto que, com a faixa no meio, nem chega a
  * encostar na barra.
  *
- * Aqui a faixa é apenas MEDIDA e publicada como `--faixa-fantasma`. O que
- * fazer com ela é decisão do CSS (`.barra-inferior` em `styles/index.css`),
- * porque depende de uma coisa que só o aparelho responde: se o WebKit
- * realmente desenha dentro da faixa ou se ela está fora da superfície. Daí o
- * seletor de modo no Diagnóstico do aparelho.
+ * **Dentro da faixa não dá para desenhar.** Foi testado no aparelho: com a
+ * barra empurrada para lá, o print mostra a tinta sumindo no meio dos ícones,
+ * na linha de 911,5pt. A superfície acaba nos 912 mesmo — os 44px restantes
+ * são pintados pelo iOS com a cor de fundo da página, e o app não os alcança.
+ *
+ * Então o que a medida serve para corrigir é o recuo: `.barra-inferior`
+ * desconta a faixa do `safe-area-inset-bottom`, porque com ela no meio o
+ * indicador de gesto não encosta na barra e reservar 34px para ele é jogar
+ * fora o pouco que sobrou.
  */
 
 /** O que o aparelho informa, isolado para o teste poder fabricar cenários. */
@@ -56,46 +60,6 @@ export function medirFaixaFantasma(m: MedidasDaTela): number {
   return faixa
 }
 
-// ---------------------------------------------------------------------------
-// Modo da barra — o experimento que só o aparelho decide
-// ---------------------------------------------------------------------------
-
-/**
- * - `rasa`: desconta a faixa do recuo do indicador de gesto. Seguro em
- *   qualquer hipótese, porque só encolhe um espaço vazio.
- * - `puxada`: joga a barra para dentro da faixa, até a borda física. É o
- *   resultado certo SE o WebKit desenhar lá — e é isso que o teste no
- *   aparelho responde.
- * - `normal`: o comportamento antigo, para comparar lado a lado.
- */
-export type ModoDaBarra = 'normal' | 'rasa' | 'puxada'
-
-export const MODOS_DA_BARRA: readonly ModoDaBarra[] = ['normal', 'rasa', 'puxada']
-
-const CHAVE = 'cf:barra'
-
-/** `rasa` é o padrão: melhora os dois cenários e não pode cortar nada. */
-export function lerModoDaBarra(): ModoDaBarra {
-  try {
-    const salvo = localStorage.getItem(CHAVE)
-    if (salvo !== null && (MODOS_DA_BARRA as readonly string[]).includes(salvo)) {
-      return salvo as ModoDaBarra
-    }
-  } catch {
-    /* localStorage bloqueado: fica no padrão */
-  }
-  return 'rasa'
-}
-
-export function definirModoDaBarra(modo: ModoDaBarra): void {
-  document.documentElement.dataset.barra = modo
-  try {
-    localStorage.setItem(CHAVE, modo)
-  } catch {
-    /* modo anônimo com storage bloqueado: vale só nesta sessão */
-  }
-}
-
 function aplicar(): void {
   const faixa = medirFaixaFantasma({
     alturaDaTela: window.screen.height,
@@ -108,12 +72,20 @@ function aplicar(): void {
 /**
  * Chamado no `main.tsx`, antes do render: a barra é uma das primeiras coisas
  * pintadas, e ler a faixa depois faria o menu saltar no primeiro frame.
+ *
+ * Medir uma vez só não serve, e isso custou um deploy: no boot o iOS reporta
+ * `innerHeight` de 894 (o viewport pequeno) e só depois assenta em 912. A
+ * primeira leitura deu uma faixa de 62px em vez de 44 e ficou lá, porque
+ * nenhum `resize` veio corrigir. Daí a insistência: quadro seguinte, `load`,
+ * e todo evento que mexe no viewport.
  */
 export function observarFaixaFantasma(): void {
-  document.documentElement.dataset.barra = lerModoDaBarra()
   aplicar()
-  // `orientationchange` dispara antes de o viewport assentar; o `resize` que
-  // vem logo atrás é quem traz o número certo. Os dois ficam por segurança.
+  requestAnimationFrame(aplicar)
+  window.addEventListener('load', aplicar)
   window.addEventListener('resize', aplicar)
   window.addEventListener('orientationchange', aplicar)
+  // Quem realmente muda quando o WebKit assenta o viewport: no iOS o
+  // `resize` da janela nem sempre acompanha.
+  window.visualViewport?.addEventListener('resize', aplicar)
 }

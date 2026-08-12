@@ -1,20 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import { Cartao } from '@/components/ui/Cartao.tsx'
-import {
-  definirModoDaBarra,
-  lerModoDaBarra,
-  medirFaixaFantasma,
-  MODOS_DA_BARRA,
-  type ModoDaBarra,
-} from '@/features/pwa/faixaFantasma.ts'
-import { cn } from '@/lib/cn.ts'
-
-const EXPLICACAO: Record<ModoDaBarra, string> = {
-  normal: 'A barra para no fim do viewport — que no iPhone não é a borda do aparelho.',
-  rasa: 'Desconta a faixa do recuo do indicador de gesto. Sobe os rótulos sem arriscar corte.',
-  puxada: 'Empurra a barra para dentro da faixa, até a borda física. Só funciona se o iOS desenhar lá.',
-}
+import { medirFaixaFantasma } from '@/features/pwa/faixaFantasma.ts'
 
 /**
  * Números do viewport do aparelho.
@@ -30,7 +17,6 @@ const EXPLICACAO: Record<ModoDaBarra, string> = {
 export function DiagnosticoViewport() {
   const [aberto, setAberto] = useState(false)
   const [dados, setDados] = useState<Record<string, string>>({})
-  const [modo, setModo] = useState<ModoDaBarra>(() => lerModoDaBarra())
 
   useEffect(() => {
     if (!aberto) return
@@ -77,6 +63,10 @@ export function DiagnosticoViewport() {
         'inset topo': insetTopo,
         'inset base': insetBase,
         'innerHeight': `${String(window.innerHeight)}px`,
+        // O bloco de contenção inicial. Por especificação ele segue o viewport
+        // PEQUENO, então aqui vale 894 enquanto o viewport tem 912 — é essa
+        // diferença de 18px que faz o documento ter o que rolar.
+        'clientHeight do html': `${String(document.documentElement.clientHeight)}px`,
         '100dvh': `${String(Math.round(alturaDvh))}px`,
         '100vh': `${String(Math.round(alturaVh))}px`,
         '100svh': `${String(Math.round(alturaSvh))}px`,
@@ -106,10 +96,7 @@ export function DiagnosticoViewport() {
     return () => {
       window.removeEventListener('resize', medir)
     }
-    // `modo` entra nas dependências porque muda a geometria da barra: com ela
-    // puxada, "barra: base em" passa de 912 para 956 e a sobra vira negativa.
-    // É por esse par de números que se confirma que o iOS desenhou na faixa.
-  }, [aberto, modo])
+  }, [aberto])
 
   return (
     <Cartao className="p-5">
@@ -133,47 +120,14 @@ export function DiagnosticoViewport() {
       </button>
 
       {aberto && (
-        <>
-          <dl className="mt-4 space-y-1.5 border-t border-borda pt-4">
-            {Object.entries(dados).map(([chave, valor]) => (
-              <div key={chave} className="flex items-baseline justify-between gap-3 text-sm">
-                <dt className="font-semibold text-texto-suave">{chave}</dt>
-                <dd className="tabular shrink-0 font-extrabold text-texto">{valor}</dd>
-              </div>
-            ))}
-          </dl>
-
-          <div className="mt-4 border-t border-borda pt-4">
-            <p className="font-extrabold text-texto">Barra de baixo</p>
-            <p className="mt-0.5 text-xs font-semibold text-texto-suave">
-              Escolha o que deixa o menu encostado na borda do aparelho. A escolha fica salva.
-            </p>
-
-            <div className="mt-3 grid grid-cols-3 gap-2">
-              {MODOS_DA_BARRA.map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  aria-pressed={m === modo}
-                  onClick={() => {
-                    definirModoDaBarra(m)
-                    setModo(m)
-                  }}
-                  className={cn(
-                    'rounded-controle px-2 py-2 text-xs font-extrabold capitalize transition-colors',
-                    m === modo
-                      ? 'bg-acento text-acento-contraste'
-                      : 'bg-superficie-2 text-texto-suave',
-                  )}
-                >
-                  {m}
-                </button>
-              ))}
+        <dl className="mt-4 space-y-1.5 border-t border-borda pt-4">
+          {Object.entries(dados).map(([chave, valor]) => (
+            <div key={chave} className="flex items-baseline justify-between gap-3 text-sm">
+              <dt className="font-semibold text-texto-suave">{chave}</dt>
+              <dd className="tabular shrink-0 font-extrabold text-texto">{valor}</dd>
             </div>
-
-            <p className="mt-2 text-xs font-semibold text-texto-fraco">{EXPLICACAO[modo]}</p>
-          </div>
-        </>
+          ))}
+        </dl>
       )}
     </Cartao>
   )
