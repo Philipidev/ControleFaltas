@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient, type UseQueryResult } from '@tan
 
 import { chaves } from './chaves.ts'
 import { paraDisciplina, paraFaltaDetalhada, type FaltaDetalhada } from './mapeadores.ts'
+import type { RegraDoNivel } from '@/domain/limites.ts'
 import type { Disciplina, Limites, RegrasFalta } from '@/domain/tipos.ts'
 import { LIMITES_PADRAO, REGRAS_PADRAO } from '@/domain/tipos.ts'
 import { mensagemDeErro, supabase } from '@/lib/supabase.ts'
@@ -10,6 +11,7 @@ import type {
   ItemRanking,
   Json,
   LinhaConfiguracoes,
+  LinhaGrupo,
   LinhaNotificacao,
   LinhaProfile,
 } from '@/types/database.ts'
@@ -108,6 +110,35 @@ export function useConfiguracoes(usuarioId: string): UseQueryResult<LinhaConfigu
   })
 }
 
+/**
+ * A configuração pessoal como um nível da cascata da regra (domain/limites.ts).
+ *
+ * As colunas são NOT NULL no banco — quem tem linha em `configuracoes` decide
+ * tudo. Por isso o nível pessoal só perde para a disciplina e para a turma, e
+ * o padrão de 25/15/20 só aparece para quem ainda não tem a linha.
+ */
+export function nivelDoUsuario(config: LinhaConfiguracoes | undefined): RegraDoNivel {
+  if (config === undefined) return {}
+  return {
+    limiteReprovacao: config.limite_reprovacao,
+    faixaVerde: config.faixa_verde,
+    faixaAmarela: config.faixa_amarela,
+    justificadaConta: config.justificada_conta,
+    justificadaQuebraStreak: config.justificada_quebra_streak,
+  }
+}
+
+/** A comunidade como nível da cascata. Anulável campo a campo, de propósito. */
+export function nivelDaComunidade(grupo: LinhaGrupo | null | undefined): RegraDoNivel {
+  if (grupo === null || grupo === undefined) return {}
+  return {
+    limiteReprovacao: grupo.limite_reprovacao,
+    faixaVerde: grupo.faixa_verde,
+    faixaAmarela: grupo.faixa_amarela,
+    justificadaConta: grupo.justificada_conta,
+  }
+}
+
 /** Converte a linha de configurações no formato que o domínio espera. */
 export function limitesDe(config: LinhaConfiguracoes | undefined): Limites {
   if (config === undefined) return LIMITES_PADRAO
@@ -152,6 +183,10 @@ export interface DisciplinaMatriculada {
   readonly disciplina: Disciplina
   readonly grupoId: string | null
   readonly personalizada: boolean
+  /** O período letivo a que esta matrícula pertence, ex: '2026.2'. */
+  readonly semestre: string
+  /** Nível mais específico da regra do curso — ver domain/limites.ts. */
+  readonly regra: RegraDoNivel
 }
 
 export function useMinhasDisciplinas(
@@ -171,6 +206,11 @@ export function useMinhasDisciplinas(
         disciplina: paraDisciplina(m.disciplinas),
         grupoId: m.grupo_id,
         personalizada: m.disciplinas.personalizada,
+        semestre: m.disciplinas.semestre,
+        regra: {
+          limiteReprovacao: m.disciplinas.limite_reprovacao,
+          justificadaConta: m.disciplinas.justificada_conta,
+        },
       }))
     },
   })
@@ -197,23 +237,130 @@ export function useCatalogo(curso: string, periodo: string, semestre: string) {
   })
 }
 
+/** Só a regra do curso entra no lote — nunca carga horária ou grade. */
+export interface RegraEmLote {
+  readonly limite_reprovacao: number | null
+  readonly justificada_conta: boolean | null
+}
+
+/**
+ * Onde o lote pega. Explícito de propósito: "todas as disciplinas" quer dizer
+ * coisas diferentes para o aluno e para quem mantém o catálogo, e o RLS recusa
+ * em silêncio o que não for de quem está pedindo — prometer o que não vai
+ * acontecer é pior do que não oferecer.
+ */
+export type EscopoDoLote =
+  | { readonly tipo: 'minhas-pessoais' }
+  | {
+      readonly tipo: 'catalogo'
+      readonly curso: string
+      readonly periodo: string
+      readonly semestre: string
+    }
+
+/**
+ * Aplica a mesma regra a várias disciplinas de uma vez.
+ *
+ * A alternativa é digitar 20% em oito disciplinas e descobrir na nona que uma
+ * delas ficou em 25%. Devolve quantas linhas mudaram de fato — o número que a
+ * tela confirma depois.
+ */
+export function useAplicarRegraEmLote(usuarioId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      regra,
+      escopo,
+      exceto,
+    }: {
+      regra: RegraEmLote
+      escopo: EscopoDoLote
+      /** A disciplina que acabou de ser salva, para não contar duas vezes. */
+      exceto?: string
+    }) => {
+      const alvo =
+        escopo.tipo === 'minhas-pessoais'
+          ? supabase
+              .from('disciplinas')
+              .update(regra)
+              .eq('personalizada', true)
+              .eq('criado_por', usuarioId)
+          : supabase
+              .from('disciplinas')
+              .update(regra)
+              .eq('personalizada', false)
+              .eq('curso', escopo.curso)
+              .eq('periodo', escopo.periodo)
+              .eq('semestre', escopo.semestre)
+
+      const { data, error } = await (exceto === undefined ? alvo : alvo.neq('id', exceto)).select(
+        'id',
+      )
+      if (error !== null) lancar(error)
+      return data.length
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: chaves.disciplinas(usuarioId) })
+      void qc.invalidateQueries({ queryKey: ['catalogo'] })
+    },
+  })
+}
+
+/**
+ * Liga as minhas matrículas à turma — `matriculas.grupo_id`.
+ *
+ * É o elo que define o escopo do ranking e, a partir dele, de qual comunidade
+ * a disciplina herda a regra do curso. A decisão de QUAIS disciplinas entram
+ * mora na RPC, e não aqui: ela casa curso, período e turma da disciplina com
+ * os da comunidade, e deixa de fora as pessoais — que são só suas e não têm
+ * com quem ser comparadas.
+ *
+ * Devolve quantas foram vinculadas.
+ */
+export function useVincularATurma(usuarioId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (grupoId: string) => {
+      const { data, error } = await supabase.rpc('vincular_disciplinas_ao_grupo', {
+        p_grupo_id: grupoId,
+      })
+      if (error !== null) lancar(error)
+      return data
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: chaves.disciplinas(usuarioId) })
+    },
+  })
+}
+
 export function useMatricular(usuarioId: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({
       disciplinaId,
-      grupoId,
+      turmaId,
     }: {
       disciplinaId: string
-      grupoId: string | null
+      /** A turma a que esta matrícula pertence, quando se sabe qual é. */
+      turmaId: string | null
     }) => {
       const { error } = await supabase
         .from('matriculas')
         .upsert(
-          { usuario_id: usuarioId, disciplina_id: disciplinaId, grupo_id: grupoId, ativa: true },
+          { usuario_id: usuarioId, disciplina_id: disciplinaId, ativa: true },
           { onConflict: 'usuario_id,disciplina_id' },
         )
       if (error !== null) lancar(error)
+
+      // O vínculo vem da RPC, e não de um `grupo_id` mandado daqui, para
+      // existir uma regra só: se o cliente decidisse por conta própria, ela
+      // divergiria da que o banco aplica no backfill e ao entrar na turma.
+      if (turmaId !== null) {
+        const { error: erroVinculo } = await supabase.rpc('vincular_disciplinas_ao_grupo', {
+          p_grupo_id: turmaId,
+        })
+        if (erroVinculo !== null) lancar(erroVinculo)
+      }
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: chaves.disciplinas(usuarioId) })
@@ -238,6 +385,8 @@ export function useCriarDisciplinaPersonalizada(usuarioId: string) {
       periodo: string
       semestre: string
       grade: { dia: number; horas: number }[]
+      /** Nível "disciplina" da regra. Null nos dois campos = herda. */
+      regra?: RegraEmLote
     }) => {
       const { data: disciplina, error: erroDisciplina } = await supabase
         .from('disciplinas')
@@ -250,6 +399,8 @@ export function useCriarDisciplinaPersonalizada(usuarioId: string) {
           cor: nova.cor,
           personalizada: true,
           criado_por: usuarioId,
+          limite_reprovacao: nova.regra?.limite_reprovacao ?? null,
+          justificada_conta: nova.regra?.justificada_conta ?? null,
         })
         .select('id')
         .single()
@@ -332,6 +483,8 @@ export interface EntradaCatalogo {
   readonly cor: string
   /** `horaInicio` em 'HH:MM'; null quando o horário não é conhecido. */
   readonly grade: readonly { dia: number; horas: number; horaInicio: string | null }[]
+  /** Nível "disciplina" da regra do curso. Null nos dois campos = herda. */
+  readonly regra?: RegraEmLote
 }
 
 /**
@@ -354,6 +507,8 @@ export function useSalvarDisciplinaAdmin() {
         semestre: entrada.semestre,
         carga_horaria_total: entrada.cargaHorariaTotal,
         cor: entrada.cor,
+        limite_reprovacao: entrada.regra?.limite_reprovacao ?? null,
+        justificada_conta: entrada.regra?.justificada_conta ?? null,
       }
 
       let id = entrada.id
@@ -577,6 +732,14 @@ export function useEntrarNoGrupo(usuarioId: string) {
     mutationFn: async (codigo: string) => {
       const { data, error } = await supabase.rpc('entrar_no_grupo', { p_codigo: codigo })
       if (error !== null) lancar(error)
+      // Entrar por código já deixa a pessoa ativa, então o vínculo é agora.
+      // Não derruba a entrada se falhar: a tela de disciplinas tem o botão.
+      const { error: erroVinculo } = await supabase.rpc('vincular_disciplinas_ao_grupo', {
+        p_grupo_id: data,
+      })
+      if (erroVinculo !== null) {
+        console.warn('Não consegui vincular as disciplinas à turma:', mensagemDeErro(erroVinculo))
+      }
       return data
     },
     onSuccess: () => {

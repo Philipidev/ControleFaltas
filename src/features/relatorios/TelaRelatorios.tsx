@@ -1,6 +1,7 @@
 import { Archive, Download, FileText } from 'lucide-react'
 import { useState } from 'react'
 
+import { EncerrarSemestre } from './EncerrarSemestre.tsx'
 import { ChipStatus } from '@/components/ChipStatus.tsx'
 import { Medidor } from '@/components/Medidor.tsx'
 import { Botao } from '@/components/ui/Botao.tsx'
@@ -129,7 +130,7 @@ export function TelaRelatorios() {
                   className="mt-2"
                   percentual={c.risco.percentual}
                   status={c.risco.status}
-                  limites={painel.limites}
+                  limites={c.limites}
                   altura="fina"
                   rotulo={`Faltas em ${c.disciplina.nome}`}
                 />
@@ -164,6 +165,10 @@ export function TelaRelatorios() {
             Baixar backup dos meus dados (JSON)
           </Botao>
         </div>
+
+        {/* Depois do backup, de propósito: quem vai apagar as datas das faltas
+            devia poder baixá-las antes. */}
+        <EncerrarSemestre />
 
         <Cartao className="flex gap-3 p-4">
           <Archive className="size-5 shrink-0 text-texto-fraco" />

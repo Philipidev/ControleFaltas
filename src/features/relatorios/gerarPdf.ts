@@ -73,13 +73,17 @@ export function gerarRelatorioPdf({
   autoTable(doc, {
     startY: 122,
     margin: { left: margem, right: margem },
-    head: [['Disciplina', 'Carga', 'Faltas', 'Justif.', '% faltas', 'Situação']],
+    // A coluna "Limite" existe porque ele deixou de ser um número só: a turma
+    // define o dela e uma disciplina de estágio pode exigir mais. Sem a
+    // coluna, "12% de faltas" não diz se está perto ou longe do teto.
+    head: [['Disciplina', 'Carga', 'Faltas', 'Justif.', '% faltas', 'Limite', 'Situação']],
     body: cartoes.map((c) => [
       c.disciplina.nome,
       formatarHoras(c.disciplina.cargaHorariaTotal),
       formatarHoras(c.risco.totalFaltado),
       formatarHoras(c.risco.totalJustificado),
       formatarPercentual(c.risco.percentual),
+      formatarPercentual(c.limites.limiteReprovacao, 0),
       ROTULO_STATUS[c.risco.status],
     ]),
     styles: { font: 'helvetica', fontSize: 9, cellPadding: 6 },
@@ -90,6 +94,7 @@ export function gerarRelatorioPdf({
       2: { halign: 'right' },
       3: { halign: 'right' },
       4: { halign: 'right' },
+      5: { halign: 'right' },
     },
   })
 
@@ -99,10 +104,19 @@ export function gerarRelatorioPdf({
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(8)
   doc.setTextColor(110)
+  // Um critério só, ou vários? Afirmar "acima de 25%" num relatório onde uma
+  // das linhas usa 10% seria escrever no rodapé o contrário do que a tabela
+  // mostra.
+  const limitesDistintos = new Set(cartoes.map((c) => c.limites.limiteReprovacao))
+  const criterio =
+    limitesDistintos.size <= 1
+      ? `Critério: reprovação por frequência acima de ${formatarPercentual(limites.limiteReprovacao, 0)} da carga horária.`
+      : 'Critério: o limite de faltas varia por disciplina — veja a coluna "Limite".'
+
   doc.text(
     [
-      `Critério: reprovação por frequência acima de ${formatarPercentual(limites.limiteReprovacao, 0)} da carga horária.`,
-      `Faixas: até ${formatarPercentual(limites.faixaVerde, 0)} tranquilo; até ${formatarPercentual(limites.faixaAmarela, 0)} atenção; acima disso, risco.`,
+      criterio,
+      `Faixas de alerta: até ${formatarPercentual(limites.faixaVerde, 0)} tranquilo; até ${formatarPercentual(limites.faixaAmarela, 0)} atenção; acima disso, risco.`,
       'Documento gerado pelo próprio estudante a partir dos registros que ele mesmo lançou.',
     ],
     margem,

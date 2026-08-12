@@ -96,7 +96,7 @@ export function TelaDisciplina() {
             className="mt-5"
             percentual={risco.percentual}
             status={risco.status}
-            limites={painel.limites}
+            limites={cartao.limites}
             altura="grossa"
             mostrarEscala
             rotulo={`Faltas em ${disciplina.nome}`}
@@ -161,7 +161,7 @@ export function TelaDisciplina() {
         </Cartao>
 
         {/* §7.3 */}
-        <Simulador disciplina={disciplina} risco={risco} limites={painel.limites} />
+        <Simulador disciplina={disciplina} risco={risco} limites={cartao.limites} />
 
         {/* Histórico */}
         <Cartao className="p-5">
@@ -225,7 +225,6 @@ export function TelaDisciplina() {
       {marcando && (
         <FolhaMarcarFalta
           cartoes={painel.cartoes}
-          limites={painel.limites}
           usuarioId={usuarioId}
           disciplinaInicial={disciplina.id}
           aoFechar={() => {

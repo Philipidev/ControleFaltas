@@ -126,7 +126,6 @@ export function TelaFaltas({ abrirNova = false }: { abrirNova?: boolean }) {
       {marcando && (
         <FolhaMarcarFalta
           cartoes={painel.cartoes}
-          limites={painel.limites}
           usuarioId={usuarioId}
           aoFechar={fecharFolha}
         />

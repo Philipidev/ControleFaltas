@@ -57,6 +57,11 @@ export function destinoDoAlerta(
     case 'prazo_atestado':
       return '/faltas'
 
+    // A virada de semestre se resolve arquivando, e o arquivo mora em
+    // Relatórios — junto do backup, que é o passo anterior.
+    case 'virada_semestre':
+      return '/relatorios'
+
     case 'resumo_semanal':
     case 'streak':
       return null
@@ -83,6 +88,7 @@ export function emojiDoAlerta(tipo: TipoNotificacao, titulo: string): string | n
     convite_grupo: '✉️',
     solicitacao_grupo: '🙋',
     resposta_grupo: '👥',
+    virada_semestre: '🗄️',
   }
   return porTipo[tipo]
 }
@@ -118,6 +124,8 @@ export function acaoDoAlerta(tipo: TipoNotificacao): string | null {
       return 'Ver disciplina'
     case 'prazo_atestado':
       return 'Anexar atestado'
+    case 'virada_semestre':
+      return 'Arquivar semestre'
     case 'resumo_semanal':
     case 'streak':
       return null

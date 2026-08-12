@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   acaoPara,
   administra,
+  candidatasDeTurma,
   descreverComunidade,
   descreverMembros,
   emailValido,
@@ -11,7 +12,9 @@ import {
   ordenarCatalogo,
   parecidas,
   poderesDe,
+  turmaDoAluno,
   type StatusMembro,
+  type TurmaCandidata,
 } from './comunidades.ts'
 
 describe('poderesDe — status manda mais que papel', () => {
@@ -213,5 +216,64 @@ describe('textos', () => {
   it('pula os campos vazios', () => {
     expect(descreverComunidade({ nome: 'x', instituicao: 'UNISA', curso: null })).toBe('UNISA')
     expect(descreverComunidade({ nome: 'x' })).toBe('')
+  })
+})
+
+describe('turmaDoAluno — na dúvida, ninguém', () => {
+  function turma(parcial: Partial<TurmaCandidata> & { id: string }): TurmaCandidata {
+    return {
+      tipo: 'turma',
+      curso: 'Medicina',
+      periodo: '5º período',
+      turma: null,
+      ...parcial,
+    }
+  }
+
+  const eu = { curso: 'Medicina', periodo: '5º período', turma: 'A' }
+
+  it('vincula quando só uma comunidade casa', () => {
+    expect(turmaDoAluno([turma({ id: 'g1' })], eu)).toBe('g1')
+  })
+
+  it('ignora acento, caixa e espaço sobrando', () => {
+    const g = turma({ id: 'g1', curso: 'MEDICINA', periodo: '5º  Período' })
+    expect(turmaDoAluno([g], eu)).toBe('g1')
+  })
+
+  it('não vincula a roda de amigos, mesmo com curso e período iguais', () => {
+    expect(turmaDoAluno([turma({ id: 'g1', tipo: 'amigos' })], eu)).toBeNull()
+  })
+
+  it('recusa quando o período difere', () => {
+    expect(turmaDoAluno([turma({ id: 'g1', periodo: '4º período' })], eu)).toBeNull()
+  })
+
+  it('a comunidade do período inteiro serve a quem tem turma', () => {
+    expect(turmaDoAluno([turma({ id: 'g1', turma: null })], eu)).toBe('g1')
+  })
+
+  it('escolhe a turma certa quando as duas declaram turma', () => {
+    const a = turma({ id: 'gA', turma: 'A' })
+    const b = turma({ id: 'gB', turma: 'B' })
+    expect(turmaDoAluno([a, b], eu)).toBe('gA')
+  })
+
+  it('desiste quando duas casam e o perfil não diz a turma', () => {
+    const a = turma({ id: 'gA', turma: 'A' })
+    const b = turma({ id: 'gB', turma: 'B' })
+    // Chutar aqui jogaria a pessoa no ranking de gente que ela não conhece.
+    expect(turmaDoAluno([a, b], { ...eu, turma: null })).toBeNull()
+    // ...mas a interface tem as duas para perguntar.
+    expect(candidatasDeTurma([a, b], { ...eu, turma: null })).toHaveLength(2)
+  })
+
+  it('desiste quando o perfil não tem curso ou período', () => {
+    expect(turmaDoAluno([turma({ id: 'g1' })], { curso: null, periodo: null, turma: null })).toBeNull()
+    expect(turmaDoAluno([turma({ id: 'g1' })], { ...eu, curso: '  ' })).toBeNull()
+  })
+
+  it('sem comunidade nenhuma, devolve null e não estoura', () => {
+    expect(turmaDoAluno([], eu)).toBeNull()
   })
 })

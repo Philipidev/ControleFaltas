@@ -1,10 +1,13 @@
-import { Flame, Plus } from 'lucide-react'
+import { Archive, Flame, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
 
 import { usePainel } from './usePainel.ts'
 import { CartaoDisciplina } from '@/components/CartaoDisciplina.tsx'
+import { Botao } from '@/components/ui/Botao.tsx'
 import { Cartao } from '@/components/ui/Cartao.tsx'
+import { useContextoDaRegra } from '@/data/regra.ts'
+import { turmaJaVirou } from '@/domain/data.ts'
 import { formatarHoras, formatarPercentual } from '@/domain/risco.ts'
 import { descreverStreak } from '@/domain/streak.ts'
 import { useUsuarioId } from '@/features/auth/contexto.ts'
@@ -19,17 +22,55 @@ import { Cabecalho, Erro, Esqueleto, Vazio } from '@/layout/pecas.tsx'
 export function TelaInicial() {
   const usuarioId = useUsuarioId()
   const painel = usePainel(usuarioId)
+  const contexto = useContextoDaRegra(usuarioId)
   const navegar = useNavigate()
   const [marcando, setMarcando] = useState<string | null>(null)
 
   if (painel.erro !== null) return <Erro erro={painel.erro} />
   if (painel.carregando) return <Esqueleto />
 
+  /*
+   * A turma virou a página e eu não.
+   *
+   * Sazonal de propósito: aparece quando há o que fazer e some depois de
+   * arquivar. Uma linha permanente em Ajustes, que era onde isto morava, é
+   * invisível durante cinco meses e meio e some no meio das preferências
+   * justamente na semana em que importa.
+   */
+  const semestreDaTurma = contexto.turma?.semestre ?? null
+  const precisaArquivar = turmaJaVirou(
+    semestreDaTurma,
+    painel.cartoes.map((c) => c.semestre),
+  )
+
   return (
     <>
       <Cabecalho titulo="Minhas faltas" subtitulo="Ordenadas por risco" />
 
       <main className="mx-auto max-w-2xl space-y-5 px-5 pt-5 pb-28 lg:pb-10">
+        {precisaArquivar && semestreDaTurma !== null && (
+          <Cartao className="flex items-start gap-3 p-4">
+            <Archive className="mt-0.5 size-5 shrink-0 text-acento" />
+            <div className="min-w-0 flex-1">
+              <p className="font-extrabold text-texto">
+                {contexto.turma?.nome ?? 'Sua turma'} já está em {semestreDaTurma}
+              </p>
+              <p className="mt-0.5 text-xs font-semibold text-texto-suave">
+                Suas disciplinas ainda são de {painel.semestre}. Arquive o semestre para
+                começar o novo com o contador zerado — o resumo fica guardado.
+              </p>
+              <Botao
+                tamanho="sm"
+                variante="secundario"
+                className="mt-3"
+                onClick={() => void navegar('/relatorios')}
+              >
+                Arquivar {painel.semestre}
+              </Botao>
+            </div>
+          </Cartao>
+        )}
+
         {painel.cartoes.length === 0 ? (
           <Vazio
             emoji="📚"
@@ -79,7 +120,7 @@ export function TelaInicial() {
                   disciplina={c.disciplina}
                   risco={c.risco}
                   projecao={c.projecao}
-                  limites={painel.limites}
+                  limites={c.limites}
                   onAbrir={() => void navegar(`/disciplinas/${c.disciplina.id}`)}
                   onMarcarFalta={() => {
                     setMarcando(c.disciplina.id)
@@ -110,7 +151,6 @@ export function TelaInicial() {
       {marcando !== null && (
         <FolhaMarcarFalta
           cartoes={painel.cartoes}
-          limites={painel.limites}
           usuarioId={usuarioId}
           disciplinaInicial={marcando}
           aoFechar={() => {

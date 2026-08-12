@@ -160,7 +160,6 @@ export function TelaCalendario() {
       {diaEscolhido !== null && doDia.length === 0 && (
         <FolhaMarcarFalta
           cartoes={painel.cartoes}
-          limites={painel.limites}
           usuarioId={usuarioId}
           dataInicial={diaEscolhido}
           aoFechar={() => {

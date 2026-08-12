@@ -6,9 +6,9 @@ permite comparar presença com a turma **sem expor número nenhum de ninguém**.
 
 Vite + React 19 + TypeScript strict · Supabase (Postgres + Auth + Storage + RLS) · PWA.
 
-> **Retomando o trabalho?** Leia [`CONTINUAR.md`](./CONTINUAR.md) primeiro. Ele tem o bug
-> aberto (espaço extra na barra inferior do PWA no iPhone), como usar o diagnóstico que já
-> está em produção para identificá-lo, e o que ficou sem teste real.
+> **Retomando o trabalho?** Leia [`CONTINUAR.md`](./CONTINUAR.md) primeiro. Ele registra o
+> que foi medido no iPhone sobre a faixa que o iOS reserva embaixo do PWA, o que ainda não
+> foi testado de verdade, e o que ficou decidido mas não feito.
 
 ---
 
@@ -68,18 +68,63 @@ tentando o que a spec proíbe.
 
 ---
 
+## De quem é a regra do curso
+
+"Reprova por falta acima de 25%" vem do regimento da faculdade, não do gosto de quem usa o
+app. Enquanto foi um controle deslizante pessoal, dava para arrastá-lo até 50% e ficar verde
+— e o ranking comparava colegas sob fórmulas diferentes, porque cada um levava a própria
+régua para dentro da soma.
+
+A regra é resolvida em cascata, do específico ao geral. Cada nível guarda `null` para dizer
+"não decido isto, pergunte acima":
+
+| Nível | Guarda | Quem preenche |
+|---|---|---|
+| Disciplina | limite, atestado desconta | admin do catálogo, ou quem cria a avulsa |
+| Comunidade | os dois acima + faixas de alerta | dono/admin da turma |
+| Você | tudo, em Ajustes | você |
+| Padrão | 25% / 15% / 20% | — |
+
+O elo entre disciplina e comunidade é `matriculas.grupo_id`, preenchido por
+`vincular_disciplinas_ao_grupo()` ao entrar na turma. Sem turma, ou numa disciplina avulsa,
+o nível pessoal continua valendo — é o mesmo mecanismo, não uma exceção.
+
+**As faixas de alerta são a única exceção, e só para baixo.** Verde e amarelo não reprovam
+ninguém: são o aviso de que a hora está chegando. Quem quer ser avisado antes está ajustando
+o próprio alarme; quem quer ser avisado depois está mexendo na régua coletiva pela porta dos
+fundos.
+
+A cascata mora em `src/domain/limites.ts` (função pura, com teste tabelado) e é repetida em
+`v_disciplina_status` para o servidor não discordar do cliente. O ranking (§5) usa **só** os
+níveis coletivos: disciplina e comunidade, nunca a configuração pessoal de cada um — do
+contrário, duas pessoas com o mesmo histórico trocariam de lugar por causa de uma chave que
+só uma delas viu.
+
+### O semestre é da turma; o arquivo é de cada um
+
+O rótulo "2026.2" saía do calendário — até junho `.1`, depois `.2` —, o que erra para quem
+cursa um período que atravessa o meio do ano e deixava cada colega virar o semestre num dia
+diferente. Quem sabe quando o período acaba é a turma, então ela diz (`grupos.semestre`).
+
+Mas **virar o semestre não apaga nada de ninguém**: quem administra marca a data e os
+membros recebem um aviso; cada pessoa arquiva o seu em Relatórios, com os próprios dados na
+mão e depois do backup. Um botão que apagasse o semestre de 40 pessoas não deveria caber na
+mão de um colega.
+
+---
+
 ## Scripts
 
 | | |
 |---|---|
 | `npm run dev` | servidor de desenvolvimento |
 | `npm run build` | `tsc --noEmit` + build estático em `dist/` |
-| `npm run test` | 270 testes do domínio (Vitest) |
+| `npm run test` | 326 testes (Vitest) — 304 deles do domínio puro |
 | `npm run typecheck` / `lint` | TypeScript strict / ESLint |
 | `npm run db:migrate` | aplica as migrations pendentes |
 | `npm run db:sql` | consulta avulsa ou arquivo `.sql` |
 | `npm run db:seed` | usuários, faltas e comunidades de demonstração |
-| `npm run db:test-rls` | 29 ataques contra o banco real |
+| `npm run db:test-rls` | 36 ataques contra o banco real |
 
 ---
 
@@ -88,7 +133,8 @@ tentando o que a spec proíbe.
 ```
 supabase/migrations/   0001 tabelas · 0002 triggers · 0003 RLS · 0004 ranking · 0005 storage
                        0006 comunidades · 0007 RPCs das comunidades
-src/domain/            matemática da spec — TypeScript puro, sem React e sem rede, 234 testes
+                       0013 regra do curso em cascata · 0014 semestre da turma
+src/domain/            matemática da spec — TypeScript puro, sem React e sem rede, 304 testes
 src/data/              repositório tipado + hooks TanStack Query (nenhuma tela importa supabase)
 src/theme/             6 temas × claro/escuro, derivados em oklch
 src/features/          uma pasta por tela

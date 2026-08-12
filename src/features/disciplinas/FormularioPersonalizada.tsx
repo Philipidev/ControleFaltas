@@ -1,9 +1,16 @@
 import { Loader2 } from 'lucide-react'
 import { useState } from 'react'
 
+import { AplicarEmLote, EditorDeRegra, type RegraEditavel } from '@/components/EditorDeRegra.tsx'
 import { Botao } from '@/components/ui/Botao.tsx'
 import { CORES_MATERIA } from '@/data/cores.ts'
-import { useCriarDisciplinaPersonalizada } from '@/data/queries.ts'
+import {
+  useAplicarRegraEmLote,
+  useCriarDisciplinaPersonalizada,
+  useMinhasDisciplinas,
+} from '@/data/queries.ts'
+import { useContextoDaRegra } from '@/data/regra.ts'
+import { ROTULO_NIVEL } from '@/domain/limites.ts'
 import { formatarHoras } from '@/domain/risco.ts'
 import { DIAS_SEMANA, NOME_DIA_CURTO, type DiaSemana } from '@/domain/tipos.ts'
 import { cn } from '@/lib/cn.ts'
@@ -30,8 +37,16 @@ export function FormularioPersonalizada({
   aoConcluir: () => void
 }) {
   const criar = useCriarDisciplinaPersonalizada(usuarioId)
+  const contexto = useContextoDaRegra(usuarioId)
+  const minhas = useMinhasDisciplinas(usuarioId)
+  const emLote = useAplicarRegraEmLote(usuarioId)
 
   const [nome, setNome] = useState('')
+  const [regra, setRegra] = useState<RegraEditavel>({
+    limiteReprovacao: null,
+    justificadaConta: null,
+  })
+  const [aplicadas, setAplicadas] = useState<number | null>(null)
   const [carga, setCarga] = useState('60')
   const [cor, setCor] = useState<string>(CORES_MATERIA[0])
   const [horasPorDia, setHorasPorDia] = useState<Partial<Record<DiaSemana, number>>>({})
@@ -41,6 +56,12 @@ export function FormularioPersonalizada({
     const horas = horasPorDia[dia]
     return horas !== undefined && horas > 0 ? [{ dia, horas }] : []
   })
+
+  // O lote só alcança o que é seu: o catálogo pertence à turma, e o RLS
+  // recusaria em silêncio.
+  const matriculadas = minhas.data ?? []
+  const outrasPessoais = matriculadas.filter((m) => m.personalizada)
+  const temDoCatalogo = matriculadas.some((m) => !m.personalizada)
 
   const horasPorSemana = grade.reduce((s, g) => s + g.horas, 0)
   const cargaNumero = Number(carga)
@@ -57,6 +78,10 @@ export function FormularioPersonalizada({
         periodo,
         semestre,
         grade,
+        regra: {
+          limite_reprovacao: regra.limiteReprovacao,
+          justificada_conta: regra.justificadaConta,
+        },
       })
       aoConcluir()
     } catch (e) {
@@ -171,6 +196,42 @@ export function FormularioPersonalizada({
           ))}
         </div>
       </fieldset>
+
+      <div>
+        <EditorDeRegra
+          valor={regra}
+          aoMudar={setRegra}
+          herdado={{
+            limite: contexto.geral.limites.limiteReprovacao,
+            justificadaConta: contexto.geral.regras.justificadaConta,
+            origem: ROTULO_NIVEL[contexto.geral.origem.limiteReprovacao],
+          }}
+        />
+
+        <AplicarEmLote
+          quantidade={outrasPessoais.length}
+          descricaoDoEscopo="nas outras disciplinas que você criou"
+          atalhoDeNivel={
+            temDoCatalogo
+              ? 'As do catálogo são da turma: a regra delas vem de lá, ou de Ajustes.'
+              : 'Para valer em tudo, inclusive no que ainda vai criar, defina em Ajustes.'
+          }
+          aplicando={emLote.isPending}
+          aplicadas={aplicadas}
+          aoAplicar={() => {
+            emLote.mutate(
+              {
+                regra: {
+                  limite_reprovacao: regra.limiteReprovacao,
+                  justificada_conta: regra.justificadaConta,
+                },
+                escopo: { tipo: 'minhas-pessoais' },
+              },
+              { onSuccess: setAplicadas },
+            )
+          }}
+        />
+      </div>
 
       {erro !== null && (
         <p

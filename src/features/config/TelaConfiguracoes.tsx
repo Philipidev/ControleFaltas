@@ -2,11 +2,12 @@ import { LogOut } from 'lucide-react'
 import type { CSSProperties } from 'react'
 
 import { DiagnosticoViewport } from './DiagnosticoViewport.tsx'
-import { ResetSemestre } from './ResetSemestre.tsx'
 import { SeletorTema } from '@/components/SeletorTema.tsx'
 import { Botao } from '@/components/ui/Botao.tsx'
 import { Cartao } from '@/components/ui/Cartao.tsx'
 import { useConfiguracoes, usePerfil, useSalvarConfiguracoes } from '@/data/queries.ts'
+import { useContextoDaRegra } from '@/data/regra.ts'
+import { ROTULO_NIVEL } from '@/domain/limites.ts'
 import { formatarPercentual } from '@/domain/risco.ts'
 import { useSessao, useUsuarioId } from '@/features/auth/contexto.ts'
 import { Cabecalho, Esqueleto } from '@/layout/pecas.tsx'
@@ -25,11 +26,15 @@ export function TelaConfiguracoes() {
   const perfil = usePerfil(usuarioId)
   const config = useConfiguracoes(usuarioId)
   const salvar = useSalvarConfiguracoes(usuarioId)
+  const contexto = useContextoDaRegra(usuarioId)
   const { densidade, definirDensidade } = useTema()
 
-  if (config.isPending || perfil.isPending) return <Esqueleto />
+  if (config.isPending || perfil.isPending || contexto.carregando) return <Esqueleto />
 
   const c = config.data
+  const regra = contexto.geral
+  const daTurma = regra.limiteTravado || regra.origem.justificadaConta === 'comunidade'
+  const nomeDaTurma = contexto.nomeDaTurma(null)
 
   return (
     <>
@@ -69,34 +74,57 @@ export function TelaConfiguracoes() {
             <Cartao className="p-5">
               <h2 className="font-extrabold text-texto">Regra do curso</h2>
               <p className="mt-1 text-xs font-semibold text-texto-suave">
-                A spec chama as faixas de "sugestão" e diz que a regra de atestado depende do
-                curso — então as duas são suas.
+                {daTurma
+                  ? `Quem administra ${nomeDaTurma ?? 'a sua turma'} respondeu por ela. Aqui você só vê.`
+                  : 'Enquanto a sua turma não define, vale o que você ajustar aqui.'}
               </p>
 
               <div className="mt-4 space-y-4">
-                <Faixa
-                  rotulo="Reprova por falta acima de"
-                  valor={c.limite_reprovacao}
-                  min={0.1}
-                  max={0.5}
-                  aoMudar={(v) => {
-                    salvar.mutate({ limite_reprovacao: v })
-                  }}
-                />
+                {regra.limiteTravado ? (
+                  <Definido
+                    rotulo="Reprova por falta acima de"
+                    valor={regra.limites.limiteReprovacao}
+                    origem={ROTULO_NIVEL[regra.origem.limiteReprovacao]}
+                  />
+                ) : (
+                  <Faixa
+                    rotulo="Reprova por falta acima de"
+                    valor={c.limite_reprovacao}
+                    min={0.1}
+                    max={0.5}
+                    aoMudar={(v) => {
+                      salvar.mutate({ limite_reprovacao: v })
+                    }}
+                  />
+                )}
+
+                {/*
+                  Alerta é de quem olha, e o controle continua aqui mesmo com a
+                  turma definindo — só que o teto vira o dela. Quem quer ser
+                  avisado antes desce o controle; para cima, não passa.
+                */}
                 <Faixa
                   rotulo="Verde até"
-                  valor={c.faixa_verde}
+                  valor={Math.min(c.faixa_verde, regra.limites.faixaVerde)}
                   min={0.02}
-                  max={c.faixa_amarela - 0.01}
+                  max={Math.min(c.faixa_amarela - 0.01, regra.tetoDoAlerta.verde ?? 1)}
                   aoMudar={(v) => {
                     salvar.mutate({ faixa_verde: v })
                   }}
+                  nota={
+                    regra.tetoDoAlerta.verde === null
+                      ? undefined
+                      : `Sua turma avisa em ${formatarPercentual(regra.tetoDoAlerta.verde, 0)}. Dá para ser avisado antes, não depois.`
+                  }
                 />
                 <Faixa
                   rotulo="Amarelo até"
-                  valor={c.faixa_amarela}
+                  valor={Math.min(c.faixa_amarela, regra.limites.faixaAmarela)}
                   min={c.faixa_verde + 0.01}
-                  max={c.limite_reprovacao}
+                  max={Math.min(
+                    regra.limites.limiteReprovacao,
+                    regra.tetoDoAlerta.amarela ?? 1,
+                  )}
                   aoMudar={(v) => {
                     salvar.mutate({ faixa_amarela: v })
                   }}
@@ -105,17 +133,28 @@ export function TelaConfiguracoes() {
             </Cartao>
 
             <Cartao className="divide-y divide-borda">
-              <Interruptor
-                titulo="Falta justificada desconta da carga"
-                descricao="Com isto desligado, o atestado tira a falta do cálculo de risco mas ela continua no contador de justificadas."
-                ligado={c.justificada_conta}
-                aoMudar={(v) => {
-                  salvar.mutate({ justificada_conta: v })
-                }}
-              />
+              {regra.origem.justificadaConta === 'usuario' ||
+              regra.origem.justificadaConta === 'padrao' ? (
+                <Interruptor
+                  titulo="Falta justificada desconta da carga"
+                  descricao="Com isto desligado, o atestado tira a falta do cálculo de risco mas ela continua no contador de justificadas."
+                  ligado={c.justificada_conta}
+                  aoMudar={(v) => {
+                    salvar.mutate({ justificada_conta: v })
+                  }}
+                />
+              ) : (
+                <div className="p-5">
+                  <Definido
+                    rotulo="Falta justificada desconta da carga"
+                    texto={regra.regras.justificadaConta ? 'Desconta' : 'Não desconta'}
+                    origem={ROTULO_NIVEL[regra.origem.justificadaConta]}
+                  />
+                </div>
+              )}
               <Interruptor
                 titulo="Atestado quebra o streak"
-                descricao="Se ligado, uma falta justificada também zera a sequência de presença."
+                descricao="Se ligado, uma falta justificada também zera a sequência de presença. É a sua sequência: nenhuma turma decide por você."
                 ligado={c.justificada_quebra_streak}
                 aoMudar={(v) => {
                   salvar.mutate({ justificada_quebra_streak: v })
@@ -124,8 +163,6 @@ export function TelaConfiguracoes() {
             </Cartao>
           </>
         )}
-
-        <ResetSemestre />
 
         <DiagnosticoViewport />
 
@@ -142,18 +179,50 @@ export function TelaConfiguracoes() {
   )
 }
 
+/**
+ * Um número que veio de cima na cascata.
+ *
+ * Some o controle e aparece quem decidiu. Deixar o controle desabilitado seria
+ * pior: um controle cinza convida a arrastar e não explica por que não anda.
+ */
+function Definido({
+  rotulo,
+  valor,
+  texto,
+  origem,
+}: {
+  rotulo: string
+  valor?: number
+  texto?: string
+  origem: string
+}) {
+  return (
+    <div>
+      <p className="flex items-baseline justify-between gap-3 text-sm font-bold text-texto">
+        {rotulo}
+        <output className="tabular shrink-0 font-extrabold text-acento">
+          {valor === undefined ? texto : formatarPercentual(valor, 0)}
+        </output>
+      </p>
+      <p className="mt-1 text-xs font-semibold text-texto-fraco">{origem}</p>
+    </div>
+  )
+}
+
 function Faixa({
   rotulo,
   valor,
   min,
   max,
   aoMudar,
+  nota,
 }: {
   rotulo: string
   valor: number
   min: number
   max: number
   aoMudar: (v: number) => void
+  nota?: string | undefined
 }) {
   return (
     <label className="block">
@@ -161,6 +230,9 @@ function Faixa({
         {rotulo}
         <output className="tabular text-acento">{formatarPercentual(valor, 0)}</output>
       </span>
+      {nota !== undefined && (
+        <span className="mt-0.5 block text-xs font-semibold text-texto-fraco">{nota}</span>
+      )}
       <input
         type="range"
         min={min}

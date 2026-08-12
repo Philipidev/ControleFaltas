@@ -225,6 +225,87 @@ export function parecidas<T extends Comparavel>(
   })
 }
 
+// ---------------------------------------------------------------------------
+// Qual turma governa a minha matrícula
+// ---------------------------------------------------------------------------
+
+/** O lado acadêmico do perfil — o que identifica em qual turma a pessoa está. */
+export interface PerfilAcademico {
+  readonly curso: string | null
+  readonly periodo: string | null
+  readonly turma: string | null
+}
+
+export interface TurmaCandidata {
+  readonly id: string
+  /** `grupo_tipo`: uma roda de amigos não governa a regra de ninguém. */
+  readonly tipo: string | null
+  readonly curso: string | null
+  readonly periodo: string | null
+  readonly turma: string | null
+}
+
+/** Case, acento e espaço sobrando não podem separar "5º Período" de "5º período". */
+function chave(valor: string): string {
+  return normalizarBusca(valor).replace(/\s+/g, ' ').trim()
+}
+
+function preenchido(v: string | null | undefined): v is string {
+  return typeof v === 'string' && v.trim() !== ''
+}
+
+function casa(a: string | null, b: string | null): boolean {
+  return preenchido(a) && preenchido(b) && chave(a) === chave(b)
+}
+
+/**
+ * A turma que responde pelas disciplinas desta pessoa, ou `null`.
+ *
+ * É o elo que preenche `matriculas.grupo_id` — o que define o escopo do
+ * ranking e, a partir dele, de qual comunidade a disciplina herda a regra do
+ * curso.
+ *
+ * **Na dúvida, ninguém.** Duas comunidades candidatas devolvem `null` em vez de
+ * um chute: vincular à turma errada joga a pessoa num ranking de gente que ela
+ * não conhece e faz a disciplina herdar um limite de reprovação que não é o
+ * dela. Sem vínculo, o pior que acontece é continuar valendo a configuração
+ * pessoal — que é o padrão de hoje.
+ *
+ * Compara pelo perfil, e não pela disciplina, porque o catálogo já é filtrado
+ * por `curso` e `periodo` do perfil (`useCatalogo`): os dois valores são
+ * necessariamente os mesmos, e o perfil é quem tem `turma`.
+ */
+export function turmaDoAluno(
+  comunidades: readonly TurmaCandidata[],
+  perfil: PerfilAcademico,
+): string | null {
+  const candidatas = candidatasDeTurma(comunidades, perfil)
+  return candidatas.length === 1 ? (candidatas[0]?.id ?? null) : null
+}
+
+/**
+ * As turmas que casam com o perfil. Mais de uma significa que a interface
+ * precisa perguntar em vez de escolher.
+ */
+export function candidatasDeTurma<T extends TurmaCandidata>(
+  comunidades: readonly T[],
+  perfil: PerfilAcademico,
+): T[] {
+  if (!preenchido(perfil.curso) || !preenchido(perfil.periodo)) return []
+
+  return comunidades.filter((c) => {
+    if (c.tipo === 'amigos') return false
+    if (!casa(c.curso, perfil.curso)) return false
+    if (!casa(c.periodo, perfil.periodo)) return false
+    // A turma só desempata quando os DOIS lados a declaram. Uma comunidade do
+    // período inteiro serve a quem está na turma A; e se existem a turma A e a
+    // turma B enquanto o perfil não diz qual, as duas casam — e ficar com as
+    // duas é justamente o que impede o chute.
+    if (preenchido(c.turma) && preenchido(perfil.turma)) return casa(c.turma, perfil.turma)
+    return true
+  })
+}
+
 interface Ordenavel {
   readonly nome: string
   readonly membros: number

@@ -1,13 +1,19 @@
 import { Loader2, X } from 'lucide-react'
 import { useState } from 'react'
 
+import { AplicarEmLote, EditorDeRegra, type RegraEditavel } from '@/components/EditorDeRegra.tsx'
 import { Botao } from '@/components/ui/Botao.tsx'
 import { CORES_MATERIA } from '@/data/cores.ts'
 import type { LinhaDisciplinaComGrade } from '@/data/mapeadores.ts'
-import { useSalvarDisciplinaAdmin } from '@/data/queries.ts'
+import {
+  useAplicarRegraEmLote,
+  useSalvarDisciplinaAdmin,
+  useTodasDisciplinas,
+} from '@/data/queries.ts'
 import { semestreAtual } from '@/domain/data.ts'
 import { formatarHoras } from '@/domain/risco.ts'
-import { DIAS_SEMANA, NOME_DIA_CURTO, type DiaSemana } from '@/domain/tipos.ts'
+import { DIAS_SEMANA, LIMITES_PADRAO, NOME_DIA_CURTO, type DiaSemana } from '@/domain/tipos.ts'
+import { useUsuarioId } from '@/features/auth/contexto.ts'
 import { cn } from '@/lib/cn.ts'
 
 /** §2 — criar/editar disciplina do catálogo, com carga horária e grade. */
@@ -19,6 +25,8 @@ export function FolhaDisciplinaAdmin({
   aoFechar: () => void
 }) {
   const salvar = useSalvarDisciplinaAdmin()
+  const todas = useTodasDisciplinas()
+  const emLote = useAplicarRegraEmLote(useUsuarioId())
 
   const [nome, setNome] = useState(linha?.nome ?? '')
   const [codigo, setCodigo] = useState(linha?.codigo ?? '')
@@ -29,6 +37,11 @@ export function FolhaDisciplinaAdmin({
   const [carga, setCarga] = useState(String(linha?.carga_horaria_total ?? 60))
   const [cor, setCor] = useState(linha?.cor ?? CORES_MATERIA[0])
   const [erro, setErro] = useState<string | null>(null)
+  const [regra, setRegra] = useState<RegraEditavel>({
+    limiteReprovacao: linha?.limite_reprovacao ?? null,
+    justificadaConta: linha?.justificada_conta ?? null,
+  })
+  const [aplicadas, setAplicadas] = useState<number | null>(null)
 
   const [horasPorDia, setHorasPorDia] = useState<Partial<Record<DiaSemana, number>>>(() => {
     const inicial: Partial<Record<DiaSemana, number>> = {}
@@ -56,6 +69,18 @@ export function FolhaDisciplinaAdmin({
     return [{ dia, horas, horaInicio: hora === undefined || hora === '' ? null : hora }]
   })
 
+  /*
+   * O alcance do lote, recontado enquanto se digita curso/período/semestre:
+   * é a promessa que o botão faz, e ela muda a cada tecla desses três campos.
+   */
+  const irmas = (todas.data ?? []).filter(
+    (d) =>
+      d.id !== linha?.id &&
+      d.curso === curso.trim() &&
+      d.periodo === periodo.trim() &&
+      d.semestre === semestre.trim(),
+  ).length
+
   const cargaNumero = Number(carga)
   const horasPorSemana = grade.reduce((s, g) => s + g.horas, 0)
   const valido =
@@ -75,6 +100,10 @@ export function FolhaDisciplinaAdmin({
         cargaHorariaTotal: cargaNumero,
         cor,
         grade,
+        regra: {
+          limite_reprovacao: regra.limiteReprovacao,
+          justificada_conta: regra.justificadaConta,
+        },
       })
       aoFechar()
     } catch (e) {
@@ -236,7 +265,44 @@ export function FolhaDisciplinaAdmin({
             </div>
           </fieldset>
 
-          {erro !== null && (
+          <EditorDeRegra
+          className="mt-5 border-t border-borda pt-5"
+          valor={regra}
+          aoMudar={setRegra}
+          herdado={{
+            limite: LIMITES_PADRAO.limiteReprovacao,
+            justificadaConta: false,
+            origem: 'da turma de quem cursa, ou do ajuste pessoal dela',
+          }}
+        />
+
+        <AplicarEmLote
+          quantidade={irmas}
+          descricaoDoEscopo={`em ${curso.trim() === '' ? 'todo o' : curso.trim()} · ${periodo.trim() === '' ? 'período' : periodo.trim()} · ${semestre.trim()}`}
+          atalhoDeNivel="Vale para quem já está matriculado também — a regra é lida na hora de calcular."
+          aplicando={emLote.isPending}
+          aplicadas={aplicadas}
+          aoAplicar={() => {
+            emLote.mutate(
+              {
+                regra: {
+                  limite_reprovacao: regra.limiteReprovacao,
+                  justificada_conta: regra.justificadaConta,
+                },
+                escopo: {
+                  tipo: 'catalogo',
+                  curso: curso.trim(),
+                  periodo: periodo.trim(),
+                  semestre: semestre.trim(),
+                },
+                ...(linha === null ? {} : { exceto: linha.id }),
+              },
+              { onSuccess: setAplicadas },
+            )
+          }}
+        />
+
+        {erro !== null && (
             <p
               role="alert"
               className="rounded-interno bg-vermelho-suave px-3 py-2.5 text-sm font-bold text-vermelho"

@@ -163,6 +163,37 @@ Não foi tentado, e nenhuma das ideias é barata:
 
 ---
 
+## 1b. A regra do curso mudou de dono (12/08/2026)
+
+Estava tudo em `configuracoes`, por usuário: o limite de 25%, as faixas do semáforo e a
+regra de atestado. Três problemas, todos verificados no código antes de mexer:
+
+1. **O app aceitava a sua versão da verdade** — o controle deslizante ia até 50%.
+2. **O ranking comparava gente sob fórmulas diferentes**: `get_group_ranking` lia o
+   `justificada_conta` de cada membro ao somar as horas.
+3. **`matriculas.grupo_id` nunca era preenchido.** A RPC que o preenche
+   (`vincular_disciplinas_ao_grupo`, 0007) existia desde sempre e **nenhuma tela a
+   chamava** — havia até um comentário em `useInvalidarComunidades` dizendo que entrar
+   numa comunidade vinculava as matrículas. Não vinculava. O ranking "geral" somava carga
+   zero e empatava a turma inteira em 1º.
+
+Agora a regra desce em cascata — disciplina → comunidade → você → padrão —, o alerta
+pessoal só aperta (nunca afrouxa o da turma), e o semestre é anunciado pela turma enquanto
+o arquivamento continua sendo ato de cada um. O README tem a explicação inteira, em "De
+quem é a regra do curso".
+
+Migrations `0013` e `0014`. Quatro ataques novos em `test-rls` cobrem o que não pode
+voltar: membro comum não muda a regra da turma, e chave pessoal nenhuma mexe no ranking.
+
+### O que ficou sem fazer
+
+- **Editar a regra de uma disciplina pessoal depois de criada.** O campo existe no
+  formulário de criação (`FormularioPersonalizada`) e no back-office do admin, mas não há
+  tela de edição de disciplina avulsa — quem errar precisa apagar e criar de novo.
+- **`justificada_quebra_streak` continua só pessoal**, de propósito: o streak é seu.
+
+---
+
 ## 2. Outros pendentes
 
 ### Nunca testado de verdade
@@ -200,14 +231,14 @@ respondeu.
 npm run dev          # Vite em :5173 (service worker DESLIGADO em dev)
 npm run typecheck    # tsc --noEmit
 npm run lint         # eslint
-npm run test         # vitest — 292 testes
+npm run test         # vitest — 326 testes
 npm run build        # tsc + vite build (é o que a Vercel roda)
 npm run icones       # regera os PNGs do ícone a partir da geometria do SVG
 
-npm run db:migrate   # aplica migrations pendentes (12 aplicadas)
+npm run db:migrate   # aplica migrations pendentes (14 aplicadas)
 npm run db:seed      # recria os 7 usuários demo, senha faltas123
 npm run db:sql -- "<sql>" | <arquivo.sql>
-npm run db:test-rls  # 31 ataques reais contra o banco
+npm run db:test-rls  # 36 ataques reais contra o banco
 ```
 
 Contas demo: `voce@demo.test` (aluno), `admin@demo.test` (back-office), mais

@@ -536,7 +536,136 @@ async function testarComunidades(marina: Sessao, bia: Sessao): Promise<void> {
       `cadastrado="${String(respCadastrado)}" vs inexistente="${String(respInexistente)}"`,
     )
 
-    // ---- 8. escrita direta na tabela ---------------------------------------
+    // ---- 8. a regra do curso é de quem administra --------------------------
+    // Sem policy que a autorize, a escrita não dá erro: atualiza ZERO linhas em
+    // silêncio. O que vale é o efeito, lido pelo cliente admin.
+    await bia.cliente
+      .from('grupos')
+      .update({ limite_reprovacao: 0.5 })
+      .eq('id', gFechada)
+
+    const { data: regraDepoisDoAtaque } = await admin
+      .from('grupos')
+      .select('limite_reprovacao')
+      .eq('id', gFechada)
+      .single()
+
+    checar(
+      'membro comum não afrouxa a regra da turma',
+      regraDepoisDoAtaque?.limite_reprovacao === null,
+      `o limite virou ${String(regraDepoisDoAtaque?.limite_reprovacao)}`,
+    )
+
+    await marina.cliente.from('grupos').update({ limite_reprovacao: 0.2 }).eq('id', gFechada)
+    const { data: regraDaDona } = await admin
+      .from('grupos')
+      .select('limite_reprovacao')
+      .eq('id', gFechada)
+      .single()
+
+    checar(
+      'quem administra define a regra da turma',
+      regraDaDona?.limite_reprovacao === 0.2,
+      `o limite ficou ${String(regraDaDona?.limite_reprovacao)}`,
+    )
+
+    // ---- 9. o ranking ordena todos sob a MESMA regra -----------------------
+    // O bug que a 0013 fechou: get_group_ranking somava as horas de cada
+    // membro usando o `justificada_conta` DELE. Duas pessoas com o mesmo
+    // histórico trocavam de lugar porque uma tinha mexido numa chave que só
+    // ela via — e a função devolve apenas a colocação, então não havia como
+    // perceber.
+    const { data: umaJustificada } = await admin
+      .from('faltas')
+      .select('usuario_id, disciplina_id')
+      .eq('justificada', true)
+      .limit(1)
+      .single()
+
+    if (umaJustificada === null) {
+      checar('há falta justificada para testar o ranking', false, 'rode npm run db:seed antes')
+    } else {
+      const TURMA_DO_SEED = '9a0b0000-0000-4000-8000-00000000000a'
+      const posicoes = async (): Promise<string> => {
+        const { data } = await marina.cliente.rpc('get_group_ranking', {
+          p_grupo_id: TURMA_DO_SEED,
+          p_disciplina_id: umaJustificada.disciplina_id,
+        })
+        return (data ?? []).map((i) => `${i.usuario_id}:${String(i.posicao)}`).join('|')
+      }
+
+      const antes = await posicoes()
+
+      const somaHoras = async (): Promise<number> => {
+        const { data } = await admin
+          .from('v_disciplina_status')
+          .select('total_faltado')
+          .eq('usuario_id', umaJustificada.usuario_id)
+          .eq('disciplina_id', umaJustificada.disciplina_id)
+          .single()
+        return data?.total_faltado ?? 0
+      }
+
+      const TURMA_DO_SEED2 = '9a0b0000-0000-4000-8000-00000000000a'
+      const { data: regraOriginal } = await admin
+        .from('grupos')
+        .select('justificada_conta')
+        .eq('id', TURMA_DO_SEED2)
+        .single()
+
+      const mexerNaChavePessoal = async (valor: boolean): Promise<void> => {
+        await admin
+          .from('configuracoes')
+          .update({ justificada_conta: valor })
+          .eq('usuario_id', umaJustificada.usuario_id)
+      }
+      const regraDaTurma = async (valor: boolean | null): Promise<void> => {
+        await admin
+          .from('grupos')
+          .update({ justificada_conta: valor })
+          .eq('id', TURMA_DO_SEED2)
+      }
+
+      // ---- com a turma decidindo, a chave pessoal não decide nada ---------
+      await regraDaTurma(false)
+      const comTurmaAntes = await somaHoras()
+      await mexerNaChavePessoal(true)
+      const comTurmaDepois = await somaHoras()
+      const rankingComTurma = await posicoes()
+      await mexerNaChavePessoal(false)
+
+      checar(
+        'com a turma decidindo, a chave pessoal não muda nem o próprio cálculo',
+        comTurmaAntes === comTurmaDepois,
+        `${String(comTurmaAntes)}h → ${String(comTurmaDepois)}h`,
+      )
+
+      // ---- sem a turma decidindo, o nível pessoal volta a valer -----------
+      await regraDaTurma(null)
+      const semTurmaAntes = await somaHoras()
+      const rankingSemTurma = await posicoes()
+      await mexerNaChavePessoal(true)
+      const semTurmaDepois = await somaHoras()
+      const rankingDepois = await posicoes()
+
+      await mexerNaChavePessoal(false)
+      await regraDaTurma(regraOriginal?.justificada_conta ?? null)
+
+      // Sem isto o teste passaria à toa: se a chave não mudasse nada para o
+      // próprio dono, também não mudaria o ranking.
+      checar(
+        'sem a turma decidindo, a chave pessoal muda o próprio cálculo',
+        semTurmaDepois > semTurmaAntes,
+        `${String(semTurmaAntes)}h → ${String(semTurmaDepois)}h`,
+      )
+      checar(
+        'mas NUNCA muda o ranking da turma',
+        antes === rankingComTurma && rankingSemTurma === rankingDepois && antes !== '',
+        `"${antes}" | "${rankingComTurma}" | "${rankingSemTurma}" | "${rankingDepois}"`,
+      )
+    }
+
+    // ---- 10. escrita direta na tabela --------------------------------------
     // Se grupo_membros fosse gravável, tudo acima seria contornável com um
     // único insert: bastaria se declarar 'ativo'.
     const { error: erroInsertDireto } = await intruso.cliente

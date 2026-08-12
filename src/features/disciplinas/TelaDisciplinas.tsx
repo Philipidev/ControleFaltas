@@ -1,17 +1,20 @@
-import { Check, Plus, Trash2, X } from 'lucide-react'
+import { Check, Plus, Trash2, Users, X } from 'lucide-react'
 import { useState } from 'react'
 
 import { FormularioPersonalizada } from './FormularioPersonalizada.tsx'
 import { GradeSemanalResumo } from '@/components/GradeSemanalResumo.tsx'
 import { Botao } from '@/components/ui/Botao.tsx'
 import { Cartao } from '@/components/ui/Cartao.tsx'
+import { useMinhasComunidades } from '@/data/comunidades.ts'
 import {
   useCatalogo,
   useDesmatricular,
   useMatricular,
   useMinhasDisciplinas,
   usePerfil,
+  useVincularATurma,
 } from '@/data/queries.ts'
+import { candidatasDeTurma, turmaDoAluno } from '@/domain/comunidades.ts'
 import { semestreAtual } from '@/domain/data.ts'
 import { formatarHoras } from '@/domain/risco.ts'
 import { useUsuarioId } from '@/features/auth/contexto.ts'
@@ -37,9 +40,12 @@ export function TelaDisciplinas() {
     semestre,
   )
 
+  const comunidades = useMinhasComunidades(usuarioId)
   const matricular = useMatricular(usuarioId)
   const desmatricular = useDesmatricular(usuarioId)
+  const vincular = useVincularATurma(usuarioId)
   const [criando, setCriando] = useState(false)
+  const [turmaEscolhida, setTurmaEscolhida] = useState<string | null>(null)
 
   if (minhas.error !== null) return <Erro erro={minhas.error} />
   if (minhas.isPending || perfil.isPending) return <Esqueleto />
@@ -47,6 +53,28 @@ export function TelaDisciplinas() {
   const matriculadas = minhas.data
   const idsMatriculados = new Set(matriculadas.map((m) => m.disciplina.id))
   const disponiveis = (catalogo.data ?? []).filter((d) => !idsMatriculados.has(d.id))
+
+  /*
+   * Qual turma responde pelas disciplinas desta pessoa.
+   *
+   * É o que preenche `matriculas.grupo_id`, que faz duas coisas: define o
+   * escopo do ranking e diz de qual comunidade a disciplina herda a regra do
+   * curso. Com mais de uma candidata o domínio se recusa a chutar, e aí a
+   * escolha é oferecida — a errada colocaria a pessoa num ranking de
+   * desconhecidos.
+   */
+  const perfilAcademico = {
+    curso: perfil.data?.curso ?? null,
+    periodo: perfil.data?.periodo ?? null,
+    turma: perfil.data?.turma ?? null,
+  }
+  const grupos = (comunidades.data ?? []).map((c) => c.grupo)
+  const candidatas = candidatasDeTurma(grupos, perfilAcademico)
+  const turmaId = turmaDoAluno(grupos, perfilAcademico) ?? turmaEscolhida
+  const turma = candidatas.find((c) => c.id === turmaId) ?? null
+
+  // Disciplina pessoal fica de fora: ela é só sua, e não entra no ranking.
+  const semTurma = matriculadas.filter((m) => !m.personalizada && m.grupoId === null)
 
   return (
     <>
@@ -56,6 +84,60 @@ export function TelaDisciplinas() {
       />
 
       <main className="mx-auto max-w-2xl space-y-6 px-5 pt-5 pb-28 lg:pb-10">
+        {candidatas.length > 0 && (
+          <Cartao className="flex items-start gap-3 p-4">
+            <Users className="mt-0.5 size-5 shrink-0 text-texto-suave" />
+            <div className="min-w-0 flex-1">
+              {turma === null ? (
+                <>
+                  <p className="text-sm font-extrabold text-texto">
+                    De qual turma são estas disciplinas?
+                  </p>
+                  <p className="mt-0.5 text-xs font-semibold text-texto-suave">
+                    Você está em mais de uma comunidade do seu período, e é a turma que define
+                    com quem o ranking compara.
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {candidatas.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => {
+                          setTurmaEscolhida(c.id)
+                        }}
+                        className="rounded-pill bg-superficie-2 px-3 py-1.5 text-xs font-extrabold text-texto-suave transition-colors hover:bg-acento-suave hover:text-acento"
+                      >
+                        {c.nome}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-semibold text-texto-suave">
+                    As disciplinas do catálogo entram vinculadas a{' '}
+                    <strong className="font-extrabold text-texto">{turma.nome}</strong>.
+                  </p>
+
+                  {semTurma.length > 0 && (
+                    <Botao
+                      tamanho="sm"
+                      variante="secundario"
+                      className="mt-3"
+                      disabled={vincular.isPending}
+                      onClick={() => {
+                        vincular.mutate(turma.id)
+                      }}
+                    >
+                      Vincular as {semTurma.length} já matriculadas
+                    </Botao>
+                  )}
+                </>
+              )}
+            </div>
+          </Cartao>
+        )}
+
         <section>
           <h2 className="mb-3 px-1 text-sm font-extrabold text-texto-suave">
             Matriculadas ({matriculadas.length})
@@ -122,7 +204,7 @@ export function TelaDisciplinas() {
                   key={d.id}
                   type="button"
                   onClick={() => {
-                    matricular.mutate({ disciplinaId: d.id, grupoId: null })
+                    matricular.mutate({ disciplinaId: d.id, turmaId })
                   }}
                   disabled={matricular.isPending}
                   className="flex w-full items-center gap-3 rounded-card border-2 border-borda bg-superficie p-4 text-left transition-colors hover:border-acento disabled:opacity-50"

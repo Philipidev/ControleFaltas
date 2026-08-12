@@ -62,6 +62,36 @@ export function semestreAtual(hoje: string = hojeISO()): string {
 }
 
 /**
+ * O semestre seguinte a este: '2026.1' → '2026.2' → '2027.1'.
+ *
+ * Serve de sugestão quando a turma vai virar a página. Rótulo que não siga o
+ * formato volta igual — a turma pode chamar o período do jeito dela, e inventar
+ * um "2026.3" a partir de "Módulo IV" seria pior do que não sugerir nada.
+ */
+export function proximoSemestre(semestre: string): string {
+  const partes = /^(\d{4})\.([12])$/.exec(semestre.trim())
+  if (partes === null) return semestre
+  const ano = Number(partes[1])
+  return partes[2] === '1' ? `${String(ano)}.2` : `${String(ano + 1)}.1`
+}
+
+/**
+ * A turma já virou a página e eu não.
+ *
+ * Compara como texto de propósito: '2026.1' < '2026.2' < '2027.1' na ordem
+ * lexicográfica, que é a mesma ordem cronológica enquanto o formato for
+ * AAAA.N. Fora do formato, a comparação não decide nada — e não decidir é o
+ * certo, porque avisar errado ensina a ignorar o aviso.
+ */
+export function turmaJaVirou(
+  semestreDaTurma: string | null,
+  meusSemestres: readonly string[],
+): boolean {
+  if (semestreDaTurma === null || !/^\d{4}\.[12]$/.test(semestreDaTurma)) return false
+  return meusSemestres.some((meu) => /^\d{4}\.[12]$/.test(meu) && meu < semestreDaTurma)
+}
+
+/**
  * Último dia letivo provável do semestre de `hoje`.
  *
  * Chute com base na convenção brasileira — 1º semestre acaba no fim de junho,

@@ -174,6 +174,25 @@ export function usePendencias(usuarioId: string) {
 // Escrita — sempre por RPC
 // ---------------------------------------------------------------------------
 
+/**
+ * Virar membro ativo é o que liga as minhas disciplinas ao grupo.
+ *
+ * A RPC existe desde a 0006 e ninguém a chamava: o comentário do
+ * `useInvalidarComunidades` abaixo dizia que entrar numa comunidade vinculava
+ * as matrículas, mas nada vinculava. O efeito era o ranking geral somando
+ * carga zero e empatando a turma inteira em 1º lugar.
+ *
+ * Falhar aqui não desfaz a entrada: a pessoa já é membro, e a tela de
+ * disciplinas oferece o mesmo vínculo num botão. Derrubar a mutação inteira
+ * mostraria um erro para quem acabou de entrar com sucesso.
+ */
+async function vincularDisciplinas(grupoId: string): Promise<void> {
+  const { error } = await supabase.rpc('vincular_disciplinas_ao_grupo', { p_grupo_id: grupoId })
+  if (error !== null) {
+    console.warn('Não consegui vincular as disciplinas à turma:', mensagemDeErro(error))
+  }
+}
+
 /** Invalida tudo que depende de participação: catálogo, minhas, badge, ranking. */
 function useInvalidarComunidades(usuarioId: string) {
   const qc = useQueryClient()
@@ -216,6 +235,7 @@ export function useCriarComunidade(usuarioId: string) {
         p_emoji: nova.emoji ?? '🎓',
       })
       if (error !== null) lancar(error)
+      await vincularDisciplinas(data)
       return data
     },
     onSuccess: (grupoId) => {
@@ -233,6 +253,9 @@ export function useSolicitarAcesso(usuarioId: string) {
         p_mensagem: mensagem ?? null,
       })
       if (error !== null) lancar(error)
+      // Comunidade aberta entra na hora; fechada devolve 'solicitado' e ainda
+      // não há vínculo a fazer.
+      if (data === 'ativo') await vincularDisciplinas(grupoId)
       return data
     },
     onSuccess: (_r, v) => {
@@ -248,6 +271,76 @@ export function useResponderConvite(usuarioId: string) {
       const { data, error } = await supabase.rpc('responder_convite', {
         p_grupo_id: grupoId,
         p_aceitar: aceitar,
+      })
+      if (error !== null) lancar(error)
+      if (data === 'ativo') await vincularDisciplinas(grupoId)
+      return data
+    },
+    onSuccess: (_r, v) => {
+      invalidar(v.grupoId)
+    },
+  })
+}
+
+/** A regra do curso que a turma responde por. Tudo anulável: null = não decide. */
+export interface RegraDaTurma {
+  readonly limite_reprovacao: number | null
+  readonly faixa_verde: number | null
+  readonly faixa_amarela: number | null
+  readonly justificada_conta: boolean | null
+}
+
+/**
+ * Define a regra do curso para a comunidade inteira.
+ *
+ * Escrita direta, e não RPC: a policy "comunidade: dono e admin editam" da
+ * 0006 já governa o UPDATE em `grupos`, e uma função nova só repetiria a mesma
+ * checagem. Mas RLS que recusa não dá erro — atualiza zero linhas em silêncio,
+ * e a tela ficaria dizendo "salvo" sem ter salvado nada. Por isso o `select`:
+ * é ele que transforma o silêncio numa mensagem.
+ */
+export function useSalvarRegraDaComunidade(usuarioId: string) {
+  const invalidar = useInvalidarComunidades(usuarioId)
+  return useMutation({
+    mutationFn: async ({ grupoId, regra }: { grupoId: string; regra: RegraDaTurma }) => {
+      const { data, error } = await supabase
+        .from('grupos')
+        .update(regra)
+        .eq('id', grupoId)
+        .select('id')
+      if (error !== null) lancar(error)
+      if (data.length === 0) {
+        throw new Error('Só quem administra a comunidade pode definir a regra do curso.')
+      }
+    },
+    onSuccess: (_r, v) => {
+      invalidar(v.grupoId)
+    },
+  })
+}
+
+/**
+ * Vira o semestre da turma.
+ *
+ * Só define o rótulo e avisa os membros — não apaga falta de ninguém. Quem
+ * arquiva é cada um, em Relatórios, com os próprios dados na mão.
+ */
+export function useVirarSemestre(usuarioId: string) {
+  const invalidar = useInvalidarComunidades(usuarioId)
+  return useMutation({
+    mutationFn: async ({
+      grupoId,
+      semestre,
+      fim,
+    }: {
+      grupoId: string
+      semestre: string
+      fim: string | null
+    }) => {
+      const { data, error } = await supabase.rpc('virar_semestre_da_turma', {
+        p_grupo_id: grupoId,
+        p_semestre: semestre,
+        p_fim: fim,
       })
       if (error !== null) lancar(error)
       return data

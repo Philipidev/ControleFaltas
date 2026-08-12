@@ -7,7 +7,7 @@ import { useMarcarFalta } from '@/data/queries.ts'
 import { diaDaSemana, formatarExtenso, hojeISO } from '@/domain/data.ts'
 import { projetarAulas } from '@/domain/diasRestantes.ts'
 import { formatarHoras, formatarPercentual, statusPara } from '@/domain/risco.ts'
-import { NOME_DIA, type Limites } from '@/domain/tipos.ts'
+import { NOME_DIA } from '@/domain/tipos.ts'
 import type { CartaoPainel } from '@/features/dashboard/usePainel.ts'
 import { cn } from '@/lib/cn.ts'
 
@@ -23,7 +23,6 @@ import { cn } from '@/lib/cn.ts'
 
 interface Props {
   readonly cartoes: readonly CartaoPainel[]
-  readonly limites: Limites
   readonly usuarioId: string
   readonly disciplinaInicial?: string | undefined
   /** Vinda do calendário: a pessoa tocou num dia específico. */
@@ -33,7 +32,6 @@ interface Props {
 
 export function FolhaMarcarFalta({
   cartoes,
-  limites,
   usuarioId,
   disciplinaInicial,
   dataInicial,
@@ -68,7 +66,9 @@ export function FolhaMarcarFalta({
       cartao.disciplina.cargaHorariaTotal > 0
         ? novoTotal / cartao.disciplina.cargaHorariaTotal
         : 0
-    const novoStatus = statusPara(novoPercentual, limites)
+    // Os limites vêm do cartão, e não de fora: a regra é por disciplina, e
+    // a folha troca de disciplina no seletor de cima.
+    const novoStatus = statusPara(novoPercentual, cartao.limites)
     const saldoDepois = Math.max(cartao.risco.horasLimite - novoTotal, 0)
 
     return {
@@ -81,7 +81,7 @@ export function FolhaMarcarFalta({
       // §6: e depois desta, a próxima já estoura?
       proximaEstoura: projetarAulas(cartao.disciplina.grade, saldoDepois, data).proximaAulaEstoura,
     }
-  }, [cartao, data, limites])
+  }, [cartao, data])
 
   async function confirmar() {
     if (cartao === undefined) return
@@ -201,7 +201,7 @@ export function FolhaMarcarFalta({
                 <p className="mt-3 flex gap-2 rounded-interno bg-vermelho-suave px-3 py-2 text-xs font-bold text-vermelho">
                   <AlertTriangle className="size-4 shrink-0" />
                   Esta falta já passa do limite de{' '}
-                  {formatarPercentual(limites.limiteReprovacao, 0)}.
+                  {formatarPercentual(cartao.limites.limiteReprovacao, 0)}.
                 </p>
               )}
 
@@ -210,7 +210,7 @@ export function FolhaMarcarFalta({
                 <p className="mt-3 flex gap-2 rounded-interno bg-amarelo-suave px-3 py-2 text-xs font-bold text-amarelo">
                   <AlertTriangle className="size-4 shrink-0" />
                   Depois desta, faltar de novo nesta disciplina passa de{' '}
-                  {formatarPercentual(limites.limiteReprovacao, 0)}.
+                  {formatarPercentual(cartao.limites.limiteReprovacao, 0)}.
                 </p>
               )}
             </div>

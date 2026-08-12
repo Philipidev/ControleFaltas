@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Botao } from '@/components/ui/Botao.tsx'
 import { Cartao } from '@/components/ui/Cartao.tsx'
 import { useArquivarSemestre, useHistoricoSemestres } from '@/data/queries.ts'
-import { formatarBR, semestreAtual } from '@/domain/data.ts'
+import { formatarBR } from '@/domain/data.ts'
 import { formatarHoras, formatarPercentual } from '@/domain/risco.ts'
 import { useUsuarioId } from '@/features/auth/contexto.ts'
 import { usePainel } from '@/features/dashboard/usePainel.ts'
@@ -14,17 +14,29 @@ import type { Json } from '@/types/database.ts'
  * §7.6 — "Reset por semestre: ao trocar de período, zera os dados mas mantém
  * histórico."
  *
+ * Mora em Relatórios, e não em Ajustes, por dois motivos. É a única coisa
+ * naquela tela que não era preferência — arquivar é um ato, não um ajuste, e
+ * acontece uma vez a cada seis meses. E o passo anterior é o backup, que está
+ * logo acima: quem vai apagar as datas das faltas devia baixá-las antes.
+ *
+ * O rótulo do semestre vem da TURMA quando ela diz qual é. Antes saía do
+ * calendário — até junho ".1", depois ".2" —, o que erra para quem cursa um
+ * período que atravessa o meio do ano, e deixava cada colega arquivar num
+ * momento diferente.
+ *
  * A confirmação exige digitar o nome do semestre. É uma ação irreversível
  * sobre dados que a pessoa levou meses acumulando — um "tem certeza?" com dois
  * botões é fácil demais de tocar por engano no celular.
  */
-export function ResetSemestre() {
+export function EncerrarSemestre() {
   const usuarioId = useUsuarioId()
   const painel = usePainel(usuarioId)
   const historico = useHistoricoSemestres(usuarioId)
   const arquivar = useArquivarSemestre(usuarioId)
 
-  const semestre = semestreAtual()
+  // O que está sendo encerrado é o semestre das minhas matrículas — que o
+  // painel resolve a partir delas, da turma, e só então do calendário.
+  const semestre = painel.semestre
   const [confirmacao, setConfirmacao] = useState('')
   const [aberto, setAberto] = useState(false)
   const [erro, setErro] = useState<string | null>(null)

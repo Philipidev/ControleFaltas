@@ -88,6 +88,18 @@ export type Database = {
           codigo_convite: string
           criado_por: string | null
           criado_em: string
+          /**
+           * 0013 — a regra do curso, para todas as disciplinas vinculadas a
+           * esta comunidade. NULL significa "não decido isto": a cascata
+           * segue para a configuração pessoal e daí para o padrão.
+           */
+          limite_reprovacao: number | null
+          faixa_verde: number | null
+          faixa_amarela: number | null
+          justificada_conta: boolean | null
+          /** 0014 — o período letivo corrente, ex: '2026.2'. NULL = a turma não diz. */
+          semestre: string | null
+          fim_do_semestre: string | null
         }
         Insert: {
           id?: string
@@ -104,6 +116,12 @@ export type Database = {
           codigo_convite?: string
           criado_por?: string | null
           criado_em?: string
+          limite_reprovacao?: number | null
+          faixa_verde?: number | null
+          faixa_amarela?: number | null
+          justificada_conta?: boolean | null
+          semestre?: string | null
+          fim_do_semestre?: string | null
         }
         Update: {
           nome?: string
@@ -118,6 +136,12 @@ export type Database = {
           turma?: string | null
           codigo_convite?: string
           criado_por?: string | null
+          limite_reprovacao?: number | null
+          faixa_verde?: number | null
+          faixa_amarela?: number | null
+          justificada_conta?: boolean | null
+          semestre?: string | null
+          fim_do_semestre?: string | null
         }
         Relationships: [
           {
@@ -198,6 +222,13 @@ export type Database = {
           ativa: boolean
           criado_em: string
           atualizado_em: string
+          /**
+           * 0013 — o nível mais específico da regra do curso. NULL = herda da
+           * comunidade. Preenchido só quando esta disciplina foge da regra
+           * geral (estágio, por exemplo).
+           */
+          limite_reprovacao: number | null
+          justificada_conta: boolean | null
         }
         Insert: {
           id?: string
@@ -212,6 +243,8 @@ export type Database = {
           criado_por?: string | null
           personalizada?: boolean
           ativa?: boolean
+          limite_reprovacao?: number | null
+          justificada_conta?: boolean | null
         }
         Update: {
           nome?: string
@@ -223,6 +256,8 @@ export type Database = {
           carga_horaria_total?: number
           cor?: string
           ativa?: boolean
+          limite_reprovacao?: number | null
+          justificada_conta?: boolean | null
         }
         Relationships: [
           {
@@ -538,6 +573,8 @@ export type Database = {
           horas_limite: number
           horas_restantes: number
           status: Database['public']['Enums']['status_risco']
+          /** 0013 — qual nível da cascata decidiu o limite desta disciplina. */
+          origem_do_limite: 'disciplina' | 'comunidade' | 'usuario' | 'padrao'
         }
         Relationships: []
       }
@@ -655,6 +692,12 @@ export type Database = {
         Returns: number
       }
 
+      /** 0014 — define o semestre da turma e avisa os membros. Devolve quantos. */
+      virar_semestre_da_turma: {
+        Args: { p_grupo_id: string; p_semestre: string; p_fim?: string | null }
+        Returns: number
+      }
+
       contar_pendencias: {
         Args: Record<string, never>
         Returns: { convites: number; solicitacoes: number }[]
@@ -698,6 +741,7 @@ export type Database = {
         | 'convite_grupo'
         | 'solicitacao_grupo'
         | 'resposta_grupo'
+        | 'virada_semestre'
     }
 
     CompositeTypes: Record<string, never>

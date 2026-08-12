@@ -259,6 +259,17 @@ async function semearComunidades(): Promise<void> {
       visibilidade: 'fechada',
       descricao: 'Turma do 5º período de Medicina.',
       criado_por: id('Você'),
+      // 0013/0014: a turma responde pela regra do curso e pelo calendário.
+      // Fica com a regra da spec para o semáforo demo não mudar de sentido,
+      // e com o semestre corrente para a virada poder ser exercitada.
+      limite_reprovacao: 0.25,
+      faixa_verde: 0.15,
+      faixa_amarela: 0.2,
+      justificada_conta: false,
+      // O mesmo rótulo que supabase/seed.sql grava nas disciplinas: se
+      // divergirem, o app acha que a turma virou o semestre e pede para
+      // arquivar dados recém-criados.
+      semestre: '2026.2',
     })
     .eq('id', TURMA)
 

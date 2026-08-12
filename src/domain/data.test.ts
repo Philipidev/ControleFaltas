@@ -12,7 +12,9 @@ import {
   intervaloDeDias,
   paraData,
   paraISO,
+  proximoSemestre,
   somarDias,
+  turmaJaVirou,
   ultimoDiaDoMes,
 } from './data.ts'
 
@@ -179,5 +181,44 @@ describe('intervaloDeDias', () => {
 
   it('não trava com intervalo invertido', () => {
     expect([...intervaloDeDias('2026-08-13', '2026-08-10')]).toEqual([])
+  })
+})
+
+describe('proximoSemestre', () => {
+  it('avança dentro do ano e vira o ano no segundo', () => {
+    expect(proximoSemestre('2026.1')).toBe('2026.2')
+    expect(proximoSemestre('2026.2')).toBe('2027.1')
+  })
+
+  it('rótulo fora do formato volta igual, sem inventar', () => {
+    expect(proximoSemestre('Módulo IV')).toBe('Módulo IV')
+    expect(proximoSemestre('2026.3')).toBe('2026.3')
+  })
+})
+
+describe('turmaJaVirou', () => {
+  it('avisa quem ficou para trás', () => {
+    expect(turmaJaVirou('2027.1', ['2026.2', '2026.2'])).toBe(true)
+  })
+
+  it('não avisa quem já está no semestre da turma', () => {
+    expect(turmaJaVirou('2026.2', ['2026.2'])).toBe(false)
+  })
+
+  it('nem quem, por algum motivo, está adiante', () => {
+    expect(turmaJaVirou('2026.1', ['2026.2'])).toBe(false)
+  })
+
+  it('turma que não diz o semestre não avisa nada', () => {
+    expect(turmaJaVirou(null, ['2026.1'])).toBe(false)
+  })
+
+  it('rótulo fora do formato não decide — avisar errado ensina a ignorar', () => {
+    expect(turmaJaVirou('Módulo V', ['2026.1'])).toBe(false)
+    expect(turmaJaVirou('2027.1', ['Módulo IV'])).toBe(false)
+  })
+
+  it('sem disciplina nenhuma, não há o que arquivar', () => {
+    expect(turmaJaVirou('2027.1', [])).toBe(false)
   })
 })
