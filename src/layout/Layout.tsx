@@ -3,6 +3,7 @@ import {
   BookOpen,
   CalendarDays,
   ChartColumn,
+  CircleHelp,
   CircleUser,
   House,
   Settings2,
@@ -45,6 +46,7 @@ const SECUNDARIOS: readonly Destino[] = [
   { para: '/relatorios', rotulo: 'Relatórios', icone: ChartColumn },
   { para: '/perfil', rotulo: 'Perfil', icone: CircleUser },
   { para: '/configuracoes', rotulo: 'Ajustes', icone: Settings2 },
+  { para: '/ajuda', rotulo: 'Como funciona', icone: CircleHelp },
   { para: '/admin', rotulo: 'Admin', icone: Shield, soAdmin: true },
 ]
 

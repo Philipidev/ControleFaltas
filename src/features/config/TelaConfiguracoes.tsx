@@ -1,5 +1,6 @@
-import { LogOut } from 'lucide-react'
+import { ChevronRight, CircleHelp, LogOut } from 'lucide-react'
 import type { CSSProperties } from 'react'
+import { Link } from 'react-router'
 
 import { DiagnosticoViewport } from './DiagnosticoViewport.tsx'
 import { SeletorTema } from '@/components/SeletorTema.tsx'
@@ -163,6 +164,25 @@ export function TelaConfiguracoes() {
             </Cartao>
           </>
         )}
+
+        {/* Antes do diagnóstico e do sair: quem abre Ajustes procurando "como
+            isso funciona" precisa achar antes de desistir. */}
+        <Link
+          to="/ajuda"
+          className="flex items-center gap-3 rounded-card border border-borda bg-superficie p-5 shadow-card transition-colors hover:border-acento"
+        >
+          <span className="grid size-10 shrink-0 place-items-center rounded-pill bg-acento-suave">
+            <CircleHelp className="size-5 text-acento" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-extrabold text-texto">Como funciona</span>
+            <span className="block text-xs font-semibold text-texto-suave">
+              O manual: como a falta é contada, de onde vem o limite, o que a turma decide e
+              quem enxerga os seus números.
+            </span>
+          </span>
+          <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-texto-fraco" />
+        </Link>
 
         <DiagnosticoViewport />
 

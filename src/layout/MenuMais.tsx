@@ -1,5 +1,14 @@
 import { motion } from 'motion/react'
-import { Bell, ChartColumn, CircleUser, Ellipsis, Settings2, Shield, X } from 'lucide-react'
+import {
+  Bell,
+  ChartColumn,
+  CircleHelp,
+  CircleUser,
+  Ellipsis,
+  Settings2,
+  Shield,
+  X,
+} from 'lucide-react'
 import { useState, type ComponentType } from 'react'
 import { createPortal } from 'react-dom'
 import { NavLink } from 'react-router'
@@ -30,6 +39,7 @@ const ITENS: readonly Item[] = [
   // caminho até ele — a lateral que o listaria é lg:flex.
   { para: '/perfil', rotulo: 'Perfil', icone: CircleUser },
   { para: '/configuracoes', rotulo: 'Ajustes', icone: Settings2 },
+  { para: '/ajuda', rotulo: 'Como funciona', icone: CircleHelp },
   { para: '/admin', rotulo: 'Admin', icone: Shield, soAdmin: true },
 ]
 

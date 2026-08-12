@@ -53,6 +53,9 @@ const TelaRelatorios = lazy(() =>
     default: m.TelaRelatorios,
   })),
 )
+const TelaAjuda = lazy(() =>
+  import('./features/ajuda/TelaAjuda.tsx').then((m) => ({ default: m.TelaAjuda })),
+)
 const TelaConfiguracoes = lazy(() =>
   import('./features/config/TelaConfiguracoes.tsx').then((m) => ({
     default: m.TelaConfiguracoes,
@@ -166,6 +169,7 @@ function RotasAutenticadas({ usuarioId }: { usuarioId: string }) {
                 <Route path="relatorios" element={<TelaRelatorios />} />
                 <Route path="perfil" element={<TelaPerfil />} />
                 <Route path="configuracoes" element={<TelaConfiguracoes />} />
+                <Route path="ajuda" element={<TelaAjuda />} />
                 {ehAdmin && <Route path="admin" element={<TelaAdmin />} />}
                 <Route path="entrar" element={<Navigate to="/" replace />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
