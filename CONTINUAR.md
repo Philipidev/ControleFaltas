@@ -114,10 +114,14 @@ O código: `src/features/pwa/faixaFantasma.ts` (mede a faixa e publica
 
 ### Depois de resolver
 
-1. Fixar o modo vencedor direto no CSS e apagar os outros dois.
-2. **Remover o diagnóstico**: `DiagnosticoViewport.tsx`, o
-   `<DiagnosticoViewport />` em `TelaConfiguracoes.tsx` e o seletor de modo.
-   `faixaFantasma.ts` **fica** — a medição continua sendo necessária.
+1. Fixar o modo vencedor direto no CSS, apagar os outros dois e o seletor de
+   modo no diagnóstico — o experimento acaba junto com a dúvida.
+2. **O diagnóstico em si fica.** Decisão do usuário em 12/08/2026: a tela de
+   números continua em Ajustes depois do bug fechado. Ela é a única janela
+   para dentro de um PWA no iPhone — não há console nem barra de URL lá — e o
+   custo é uma seção recolhida no fim de uma tela secundária.
+3. `faixaFantasma.ts` fica de qualquer jeito: a medição é o que sustenta a
+   correção, não instrumentação.
 
 ---
 
