@@ -151,14 +151,19 @@ lugar sem função.
 > **Atenção:** o Vite lê as variáveis no **build**, não em runtime. Mudar um valor na Vercel
 > não afeta um deploy já publicado — é preciso redeployar.
 
-### Roteamento
+### `vercel.json`
 
-`vercel.json` traz o fallback de SPA. Sem ele, abrir `/faltas` direto ou dar F5 em
-`/disciplinas/:id` devolve 404, porque esses caminhos não existem como arquivo. A Vercel não
-adiciona isso automaticamente para Vite puro.
+Três regras, todas com um motivo concreto:
 
-O mesmo arquivo marca `sw.js` como sempre-revalidar: se o CDN cachear o service worker, o app
-fica preso numa versão antiga mesmo depois do deploy.
+| Regra | Por quê |
+|---|---|
+| `rewrites: /(.*) → /index.html` | Fallback de SPA. Sem ele, abrir `/faltas` direto ou dar F5 em `/disciplinas/:id` devolve 404 — esses caminhos não existem como arquivo, e a Vercel não adiciona o fallback automaticamente para Vite puro. A checagem do sistema de arquivos acontece **antes** dos rewrites, então assets, `sw.js` e o manifest continuam sendo servidos direto. |
+| `sw.js` e manifest com `max-age=0` | Se o CDN cachear o service worker, o app fica preso numa versão antiga mesmo depois do deploy, e o usuário vê a build velha até limpar o navegador. |
+| `/assets/*` com `immutable` | Esses arquivos levam hash no nome, então podem ser cacheados para sempre. |
+
+> Não adicione campos `comment` a este arquivo para documentá-lo. A Vercel valida o schema
+> estritamente e recusa propriedades desconhecidas — o build falha com
+> *"should NOT have additional property"*. JSON não tem comentário; a documentação é esta tabela.
 
 ### Supabase Auth
 
