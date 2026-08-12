@@ -58,6 +58,17 @@
     -webkit-text-size-adjust: 100%;
     /* o app é uma tela só por vez; o scroll horizontal nunca é intencional */
     overflow-x: hidden;
+
+    /*
+     * Aqui, e não no body.
+     *
+     * `overscroll-behavior` no body só chega à viewport por propagação — e a
+     * propagação é bloqueada quando o html tem overflow diferente de visible,
+     * que é o caso da linha acima. Ou seja: declarado no body, este valor era
+     * ignorado pela viewport, e no iOS em modo aplicativo a página inteira
+     * continuava com o arrasto elástico.
+     */
+    overscroll-behavior-y: none;
   }
 
   body {
@@ -68,8 +79,14 @@
     font-weight: 500;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
-    /* mobile-first: nada de bounce/scroll horizontal atrás do bottom-nav */
     overscroll-behavior-y: none;
+    /*
+     * Continua `min-height`, e não `height`: dentro do app a casca do Layout
+     * é `h-dvh overflow-hidden` e nunca ultrapassa a tela, então não há
+     * documento rolante de qualquer forma. Já as telas de login e de setup
+     * ficam FORA do Layout — travar a altura aqui tiraria delas o scroll
+     * natural num aparelho baixo ou em paisagem.
+     */
     min-height: 100dvh;
   }
 

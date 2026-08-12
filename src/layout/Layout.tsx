@@ -52,9 +52,22 @@ export function Layout({ ehAdmin, pendencias = 0 }: { ehAdmin: boolean; pendenci
   const laterais = [...PRINCIPAIS, ...SECUNDARIOS.filter((d) => !(d.soAdmin ?? false) || ehAdmin)]
 
   return (
-    <div className="min-h-dvh bg-fundo lg:flex">
+    /*
+     * Casca fixa, miolo rolante.
+     *
+     * Com `min-h-dvh` quem rolava era o DOCUMENTO. No iOS em modo aplicativo
+     * isso arrasta a página inteira no efeito elástico: o cabeçalho `sticky` e
+     * a barra de baixo `fixed` sobem junto e aparece o fundo atrás delas — a
+     * aba inteira se mexe em vez de só o conteúdo.
+     *
+     * `h-dvh` + `overflow-hidden` deixa o documento exatamente do tamanho da
+     * tela, então não há o que rolar nele. O scroll passa a acontecer no `div`
+     * do conteúdo, e o cabeçalho gruda no topo DELE — que é o que se espera de
+     * um app.
+     */
+    <div className="h-dvh overflow-hidden bg-fundo lg:flex">
       {/* Barra lateral — desktop */}
-      <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-borda bg-fundo-alt px-3 py-5 lg:flex">
+      <aside className="hidden h-full w-60 shrink-0 flex-col overflow-y-auto border-r border-borda bg-fundo-alt px-3 py-5 lg:flex">
         <div className="mb-6 flex items-center gap-2.5 px-2">
           <span className="grid size-9 place-items-center rounded-controle bg-acento text-lg">
             📋
@@ -75,7 +88,9 @@ export function Layout({ ehAdmin, pendencias = 0 }: { ehAdmin: boolean; pendenci
         <BotaoModo className="mt-2 self-start" />
       </aside>
 
-      <div className="flex-1">
+      {/* `overscroll-contain` impede o encadeamento: sem ele, chegar ao fim
+          da lista continua o gesto no documento e o efeito elástico volta. */}
+      <div className="h-full flex-1 overflow-y-auto overscroll-contain">
         <Outlet />
       </div>
 
