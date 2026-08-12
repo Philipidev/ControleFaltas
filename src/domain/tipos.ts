@@ -43,6 +43,22 @@ export const NOME_DIA_PLURAL: Readonly<Record<DiaSemana, string>> = {
   6: 'sábados',
 }
 
+/**
+ * Códigos de dia do RFC 5545, para o BYDAY da recorrência no .ics.
+ *
+ * A ordem casa com EXTRACT(DOW) do Postgres, a mesma convenção usada em
+ * `dia_semana` — trocar a origem aqui deslocaria toda a grade em um dia.
+ */
+export const DIAS_ICS: Readonly<Record<DiaSemana, string>> = {
+  0: 'SU',
+  1: 'MO',
+  2: 'TU',
+  3: 'WE',
+  4: 'TH',
+  5: 'FR',
+  6: 'SA',
+}
+
 export function ehDiaSemana(valor: number): valor is DiaSemana {
   return Number.isInteger(valor) && valor >= 0 && valor <= 6
 }
@@ -51,6 +67,16 @@ export function ehDiaSemana(valor: number): valor is DiaSemana {
 export interface AulaDoDia {
   readonly dia: DiaSemana
   readonly horas: number
+  /**
+   * 'HH:MM:SS', quando se sabe.
+   *
+   * Opcional, e não obrigatório com null: nenhum cálculo de falta usa este
+   * campo — a §3 desconta por `horas`, e a hora do dia não muda nada. Exigi-lo
+   * obrigaria dezenas de fixtures de teste a declarar `horaInicio: null` só
+   * para satisfazer o compilador, escondendo o que cada teste realmente diz.
+   * Existe só para a exportação ao calendário marcar a aula na hora certa.
+   */
+  readonly horaInicio?: string | null
 }
 
 /** A grade semanal inteira de uma disciplina. */

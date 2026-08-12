@@ -3,6 +3,7 @@ import {
   BookOpen,
   CalendarDays,
   ChartColumn,
+  CircleUser,
   House,
   Settings2,
   Shield,
@@ -42,6 +43,7 @@ const PRINCIPAIS: readonly Destino[] = [
 const SECUNDARIOS: readonly Destino[] = [
   { para: '/alertas', rotulo: 'Alertas', icone: Bell },
   { para: '/relatorios', rotulo: 'Relatórios', icone: ChartColumn },
+  { para: '/perfil', rotulo: 'Perfil', icone: CircleUser },
   { para: '/configuracoes', rotulo: 'Ajustes', icone: Settings2 },
   { para: '/admin', rotulo: 'Admin', icone: Shield, soAdmin: true },
 ]

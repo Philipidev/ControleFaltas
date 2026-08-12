@@ -29,10 +29,24 @@ export default defineConfig({
         background_color: '#0b0b12',
         theme_color: '#f97316',
         categories: ['education', 'productivity'],
+        // Os PNGs vêm de `npm run icones`. O SVG fica por ser nítido em
+        // qualquer tamanho, mas sozinho não basta: parte dos lançadores
+        // Android e a instalação no iOS só aceitam raster.
         icons: [
           { src: '/icone.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
-          { src: '/icone-mascara.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'maskable' },
+          { src: '/icone-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: '/icone-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          {
+            src: '/icone-mascara-512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable',
+          },
         ],
+        // §7.4 — o mais perto de um widget que a web entrega: segurar o ícone
+        // na tela de início abre estes atalhos. Todas as URLs precisam ser
+        // rotas REAIS: `/faltas/nova` apontava para rota inexistente e caía no
+        // redirect para a home, então o atalho "Marcar falta" não marcava nada.
         shortcuts: [
           {
             name: 'Marcar falta',
@@ -46,10 +60,24 @@ export default defineConfig({
             description: 'Ver o semáforo das disciplinas',
             url: '/',
           },
+          {
+            name: 'Calendário',
+            short_name: 'Agenda',
+            description: 'Ver as faltas no mês',
+            url: '/calendario',
+          },
+          {
+            name: 'Minhas turmas',
+            short_name: 'Turmas',
+            description: 'Comunidades e convites',
+            url: '/comunidades',
+          },
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,woff2}'],
+        // png incluído: os ícones do manifest e o apple-touch-icon precisam
+        // estar no precache, senão a instalação offline fica sem ícone.
+        globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         cleanupOutdatedCaches: true,
       },
       devOptions: {

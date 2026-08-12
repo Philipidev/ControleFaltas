@@ -1,9 +1,13 @@
+import { CalendarPlus } from 'lucide-react'
 import { useState } from 'react'
 
+import { FolhaExportarCalendario } from './FolhaExportarCalendario.tsx'
 import { CalendarioMes } from '@/components/CalendarioMes.tsx'
 import { Cartao } from '@/components/ui/Cartao.tsx'
 import { useFaltas } from '@/data/queries.ts'
 import { formatarBR, hojeISO, primeiroDiaDoMes } from '@/domain/data.ts'
+import { faltasComPrazoCorrendo } from '@/domain/justificativa.ts'
+import type { PrazoParaExportar } from '@/domain/ics.ts'
 import { formatarHoras } from '@/domain/risco.ts'
 import { useUsuarioId } from '@/features/auth/contexto.ts'
 import { usePainel } from '@/features/dashboard/usePainel.ts'
@@ -19,6 +23,7 @@ export function TelaCalendario() {
 
   const [mes, setMes] = useState(() => primeiroDiaDoMes(hoje))
   const [diaEscolhido, setDiaEscolhido] = useState<string | null>(null)
+  const [exportando, setExportando] = useState(false)
 
   if (painel.erro !== null) return <Erro erro={painel.erro} />
   if (painel.carregando) return <Esqueleto />
@@ -43,9 +48,37 @@ export function TelaCalendario() {
 
   const doDia = diaEscolhido === null ? [] : lista.filter((f) => f.data === diaEscolhido)
 
+  const nomePorId = new Map(disciplinas.map((d) => [d.id, d.nome]))
+  // Só as faltas ainda dentro dos 7 dias entram no .ics: um prazo vencido no
+  // calendário do celular seria um lembrete para algo que não dá mais para
+  // fazer. O 7 aqui é o limite inteiro da janela, não o aviso de urgência.
+  const prazos: PrazoParaExportar[] = faltasComPrazoCorrendo(lista, hoje, 7).map(
+    ({ falta, situacao }) => ({
+      faltaId: falta.id,
+      disciplina: nomePorId.get(falta.disciplinaId) ?? 'Disciplina',
+      prazo: situacao.prazo,
+    }),
+  )
+
   return (
     <>
-      <Cabecalho titulo="Calendário" subtitulo="Toque num dia para marcar falta" />
+      <Cabecalho
+        titulo="Calendário"
+        subtitulo="Toque num dia para marcar falta"
+        acao={
+          <button
+            type="button"
+            onClick={() => {
+              setExportando(true)
+            }}
+            aria-label="Adicionar ao calendário do celular"
+            title="Adicionar ao calendário do celular"
+            className="grid size-9 place-items-center rounded-pill bg-superficie-2 text-texto-suave"
+          >
+            <CalendarPlus className="size-5" />
+          </button>
+        }
+      />
 
       <main className="mx-auto max-w-2xl space-y-4 px-5 pt-5 pb-28 lg:pb-10">
         <Cartao className="p-4">
@@ -132,6 +165,16 @@ export function TelaCalendario() {
           dataInicial={diaEscolhido}
           aoFechar={() => {
             setDiaEscolhido(null)
+          }}
+        />
+      )}
+
+      {exportando && (
+        <FolhaExportarCalendario
+          disciplinas={disciplinas}
+          prazos={prazos}
+          aoFechar={() => {
+            setExportando(false)
           }}
         />
       )}

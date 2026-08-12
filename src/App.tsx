@@ -61,6 +61,9 @@ const TelaConfiguracoes = lazy(() =>
 const TelaAdmin = lazy(() =>
   import('./features/admin/TelaAdmin.tsx').then((m) => ({ default: m.TelaAdmin })),
 )
+const TelaPerfil = lazy(() =>
+  import('./features/perfil/TelaPerfil.tsx').then((m) => ({ default: m.TelaPerfil })),
+)
 const TelaComunidades = lazy(() =>
   import('./features/comunidades/TelaComunidades.tsx').then((m) => ({
     default: m.TelaComunidades,
@@ -119,6 +122,7 @@ function RotasAutenticadas({ usuarioId }: { usuarioId: string }) {
   const painel = usePainel(usuarioId)
   const pendencias = usePendencias(usuarioId)
   const ehAdmin = perfil.data?.role === 'admin'
+  const perfilCarregando = perfil.isPending
 
   // §7.4 — o badge no ícone do app instalado acompanha as disciplinas em
   // atenção, sem precisar abrir nada.
@@ -127,6 +131,14 @@ function RotasAutenticadas({ usuarioId }: { usuarioId: string }) {
   // Convites meus + solicitações que preciso responder, num número só.
   const totalPendencias =
     (pendencias.data?.convites ?? 0) + (pendencias.data?.solicitacoes ?? 0)
+
+  // Espera o perfil antes de montar as rotas.
+  //
+  // A rota /admin só existe quando `ehAdmin` é true, e enquanto a query não
+  // responde ele é false. Sem esta espera, abrir /admin pela URL ou dar
+  // refresh nela caía no catch-all e mandava o admin para a home — parecia
+  // falta de permissão, mas era só uma corrida com a rede.
+  if (perfilCarregando) return <Esqueleto />
 
   return (
     <Routes>
@@ -140,6 +152,10 @@ function RotasAutenticadas({ usuarioId }: { usuarioId: string }) {
                 <Route path="disciplinas" element={<TelaDisciplinas />} />
                 <Route path="disciplinas/:id" element={<TelaDisciplina />} />
                 <Route path="faltas" element={<TelaFaltas />} />
+                {/* Entrada do atalho do ícone (segurar → "Marcar falta"), que
+                    o manifest aponta. Sem esta rota o atalho caía no
+                    catch-all e ia parar na home sem abrir nada. */}
+                <Route path="faltas/nova" element={<TelaFaltas abrirNova />} />
                 <Route path="calendario" element={<TelaCalendario />} />
                 <Route path="ranking" element={<TelaRanking />} />
                 {/* /nova antes de /:id — senão "nova" casaria como um id. */}
@@ -148,6 +164,7 @@ function RotasAutenticadas({ usuarioId }: { usuarioId: string }) {
                 <Route path="comunidades/:id" element={<TelaComunidade />} />
                 <Route path="alertas" element={<TelaAlertas />} />
                 <Route path="relatorios" element={<TelaRelatorios />} />
+                <Route path="perfil" element={<TelaPerfil />} />
                 <Route path="configuracoes" element={<TelaConfiguracoes />} />
                 {ehAdmin && <Route path="admin" element={<TelaAdmin />} />}
                 <Route path="entrar" element={<Navigate to="/" replace />} />

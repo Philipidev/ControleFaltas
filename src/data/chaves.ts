@@ -27,6 +27,20 @@ export const chaves = {
   membros: (grupoId: string) => ['comunidades', grupoId, 'membros'] as const,
   convites: (usuarioId: string) => ['comunidades', 'convites', usuarioId] as const,
   pendencias: (usuarioId: string) => ['comunidades', 'pendencias', usuarioId] as const,
+  /**
+   * Separada de `grupos` de propósito, e o motivo é caro.
+   *
+   * As duas listam os meus grupos ativos, mas com formatos diferentes:
+   * `grupos` devolve a linha de grupos crua (o seletor do ranking lê `.nome`),
+   * e esta devolve `{ grupo, papel, status }`. Enquanto dividiam a chave, o
+   * TanStack Query tratava tudo como UMA entrada — a última tela visitada
+   * sobrescrevia o cache da outra, e o ranking passava a ler `.nome` num
+   * objeto que só tinha `.grupo`. Resultado: chips sem texto e ranking preso
+   * no esqueleto, até recarregar a página.
+   *
+   * Uma chave, um formato. Mesmo dado, chaves diferentes, é bug esperando.
+   */
+  minhasComunidades: (usuarioId: string) => ['comunidades', 'minhas', usuarioId] as const,
 
   notificacoes: (usuarioId: string) => ['notificacoes', usuarioId] as const,
   resumoSemanal: (usuarioId: string) => ['resumo-semanal', usuarioId] as const,

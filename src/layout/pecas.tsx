@@ -1,8 +1,11 @@
 import type { ReactNode } from 'react'
 
+import { MenuMais } from './MenuMais.tsx'
 import { BotaoModo } from '@/components/SeletorTema.tsx'
 import { Botao } from '@/components/ui/Botao.tsx'
 import { Cartao } from '@/components/ui/Cartao.tsx'
+import { useNotificacoes, usePerfil } from '@/data/queries.ts'
+import { useUsuarioId } from '@/features/auth/contexto.ts'
 
 /** Peças repetidas de tela: cabeçalho, carregando, erro e estado vazio. */
 
@@ -15,6 +18,14 @@ export function Cabecalho({
   subtitulo?: string
   acao?: ReactNode
 }) {
+  // Lidos daqui em vez de descidos por prop: o Cabeçalho aparece em dez telas
+  // e nenhuma delas tem motivo para saber se você é admin. As duas queries já
+  // estão no cache do TanStack Query — não custam requisição nova.
+  const usuarioId = useUsuarioId()
+  const perfil = usePerfil(usuarioId)
+  const notificacoes = useNotificacoes(usuarioId)
+  const naoLidos = (notificacoes.data ?? []).filter((n) => !n.lida).length
+
   return (
     <header className="area-segura-topo sticky top-0 z-20 border-b border-borda bg-fundo/85 backdrop-blur-xl">
       <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 px-5 py-3">
@@ -27,6 +38,7 @@ export function Cabecalho({
         <div className="flex shrink-0 items-center gap-2">
           {acao}
           <BotaoModo className="lg:hidden" />
+          <MenuMais ehAdmin={perfil.data?.role === 'admin'} naoLidos={naoLidos} />
         </div>
       </div>
     </header>

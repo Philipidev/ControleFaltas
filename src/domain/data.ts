@@ -61,6 +61,20 @@ export function semestreAtual(hoje: string = hojeISO()): string {
   return `${ano}.${mes <= 6 ? '1' : '2'}`
 }
 
+/**
+ * Último dia letivo provável do semestre de `hoje`.
+ *
+ * Chute com base na convenção brasileira — 1º semestre acaba no fim de junho,
+ * 2º no meio de dezembro. Serve de valor inicial para a exportação ao
+ * calendário, onde a pessoa corrige se o curso dela for diferente. Guardar a
+ * data de verdade exigiria mais um campo que ninguém preencheria.
+ */
+export function fimProvavelDoSemestre(hoje: string = hojeISO()): string {
+  const ano = hoje.slice(0, 4)
+  const mes = Number(hoje.slice(5, 7))
+  return mes <= 6 ? `${ano}-06-30` : `${ano}-12-15`
+}
+
 export function ehDataValida(iso: string): boolean {
   try {
     paraData(iso)

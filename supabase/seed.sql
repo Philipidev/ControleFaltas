@@ -49,32 +49,37 @@ on conflict (id) do update set
 -- ---------------------------------------------------------------------------
 -- Grade semanal — "o app já sabe que faltar numa segunda custa 4h" (§2/§3)
 -- ---------------------------------------------------------------------------
-insert into public.disciplina_grade (disciplina_id, dia_semana, horas) values
+-- hora_inicio (0012) não entra em cálculo nenhum: a §3 desconta por `horas`.
+-- Está aqui para a exportação ao calendário do celular marcar a aula na hora
+-- certa, e uma delas fica NULL de propósito — é assim que se vê, no demo, o
+-- aviso de "sem horário cadastrado, vai usar o padrão".
+insert into public.disciplina_grade (disciplina_id, dia_semana, horas, hora_inicio) values
   -- Medicina, Família e Comunidade — o caso literal da spec
-  ('d15c0000-0000-4000-8000-000000000001', 1, 4),  -- segunda 4h
-  ('d15c0000-0000-4000-8000-000000000001', 3, 2),  -- quarta  2h
+  ('d15c0000-0000-4000-8000-000000000001', 1, 4, '08:00'),  -- segunda 4h
+  ('d15c0000-0000-4000-8000-000000000001', 3, 2, '10:00'),  -- quarta  2h
 
   -- Bioquímica Médica
-  ('d15c0000-0000-4000-8000-000000000002', 2, 4),  -- terça   4h
-  ('d15c0000-0000-4000-8000-000000000002', 4, 4),  -- quinta  4h
+  ('d15c0000-0000-4000-8000-000000000002', 2, 4, '08:00'),  -- terça   4h
+  ('d15c0000-0000-4000-8000-000000000002', 4, 4, '08:00'),  -- quinta  4h
 
   -- Anatomia Humana II
-  ('d15c0000-0000-4000-8000-000000000003', 1, 2),  -- segunda 2h
-  ('d15c0000-0000-4000-8000-000000000003', 3, 4),  -- quarta  4h
-  ('d15c0000-0000-4000-8000-000000000003', 5, 4),  -- sexta   4h
+  ('d15c0000-0000-4000-8000-000000000003', 1, 2, '14:00'),  -- segunda 2h
+  ('d15c0000-0000-4000-8000-000000000003', 3, 4, '14:00'),  -- quarta  4h
+  ('d15c0000-0000-4000-8000-000000000003', 5, 4, '14:00'),  -- sexta   4h
 
   -- Fisiologia Humana
-  ('d15c0000-0000-4000-8000-000000000004', 2, 2),  -- terça   2h
-  ('d15c0000-0000-4000-8000-000000000004', 4, 2),  -- quinta  2h
-  ('d15c0000-0000-4000-8000-000000000004', 5, 2),  -- sexta   2h
+  ('d15c0000-0000-4000-8000-000000000004', 2, 2, '19:00'),  -- terça   2h
+  ('d15c0000-0000-4000-8000-000000000004', 4, 2, '19:00'),  -- quinta  2h
+  ('d15c0000-0000-4000-8000-000000000004', 5, 2, '19:00'),  -- sexta   2h
 
   -- Semiologia Médica
-  ('d15c0000-0000-4000-8000-000000000005', 3, 4),  -- quarta  4h
+  ('d15c0000-0000-4000-8000-000000000005', 3, 4, '16:00'),  -- quarta  4h
 
-  -- Saúde Coletiva
-  ('d15c0000-0000-4000-8000-000000000006', 5, 2)   -- sexta   2h
+  -- Saúde Coletiva — sem horário, de propósito
+  ('d15c0000-0000-4000-8000-000000000006', 5, 2, null)      -- sexta   2h
 on conflict (disciplina_id, dia_semana) do update set
-  horas = excluded.horas;
+  horas       = excluded.horas,
+  hora_inicio = excluded.hora_inicio;
 
 -- ---------------------------------------------------------------------------
 -- Grupo da turma (§5, §7.6 "pode ser a turma inteira")

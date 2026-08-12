@@ -42,13 +42,20 @@ export function TelaComunidade() {
   const responderConvite = useResponderConvite(usuarioId)
   const remover = useRemoverMembro(usuarioId)
 
+  // Os dois erros são checados, e em `if`s separados. Se o de membros passasse
+  // batido, `membros.data` ficaria undefined, a lista viraria [] e a tela
+  // concluiria que não sou membro — oferecendo "Pedir para entrar" ao dono da
+  // comunidade. Erro engolido vira mentira na interface.
+  //
+  // Separados porque `a.error ?? b.error` destrói o estreitamento: o tipo de
+  // useQuery é união discriminada por `error`, e o TypeScript só a resolve
+  // quando o teste cita a query diretamente.
   if (comunidade.error !== null) return <Erro erro={comunidade.error} />
+  if (membros.error !== null) return <Erro erro={membros.error} />
   if (comunidade.isPending || membros.isPending) return <Esqueleto />
 
   const g = comunidade.data
-  // ?? [] em vez de confiar no isPending: o TypeScript não estreita o tipo de
-  // uma query a partir do isPending de OUTRA no mesmo `if`.
-  const lista = membros.data ?? []
+  const lista = membros.data
   const eu = lista.find((m) => m.usuarioId === usuarioId) ?? null
   const poderes = poderesDe(eu?.papel ?? null, eu?.status ?? null)
 

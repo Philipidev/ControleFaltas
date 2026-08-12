@@ -12,7 +12,25 @@
     <meta name="theme-color" content="#fffbf5" media="(prefers-color-scheme: light)" />
     <meta name="color-scheme" content="dark light" />
     <link rel="icon" type="image/svg+xml" href="/icone.svg" />
-    <link rel="apple-touch-icon" href="/icone.svg" />
+    <!--
+      PNG, e não o SVG: o iOS ignora SVG em apple-touch-icon. Com só o SVG,
+      "Adicionar à Tela de Início" no iPhone usava um print da página no lugar
+      do ícone. O arquivo é gerado por `npm run icones`.
+    -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+
+    <!-- Nome sob o ícone na tela de início. Sem isto o iOS usa o <title>
+         inteiro, que não cabe e vira "Controle de Fal...". -->
+    <meta name="apple-mobile-web-app-title" content="Faltas" />
+    <meta name="application-name" content="Faltas" />
+    <!-- O padrão atual e o legado da Apple: iOS antigo só entende o segundo,
+         e é ele que faz o app abrir sem a barra do Safari. -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <!-- black-translucent deixa o conteúdo subir até o notch; o padding vem
+         do env(safe-area-inset-top) que as telas já aplicam. -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
     <title>Controle de Faltas</title>
 
     <!--

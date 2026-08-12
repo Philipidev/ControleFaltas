@@ -140,7 +140,10 @@ export function TelaDisciplina() {
 
               <div className="rounded-interno bg-superficie-2 p-4">
                 <p className="text-xs font-bold text-texto-fraco">Por tipo de dia</p>
-                <p className="mt-1 font-extrabold text-texto capitalize">
+                {/* first-letter, não `capitalize`: este texto tem várias
+                    palavras ("4 terças ou 4 quintas") e o capitalize do CSS
+                    maiúsculiza cada uma, virando "4 Terças Ou 4 Quintas". */}
+                <p className="mt-1 font-extrabold text-texto first-letter:uppercase">
                   {descreverPorTipoDeDia(porDia)}
                 </p>
                 <p className="mt-1.5 text-xs font-semibold text-texto-fraco">

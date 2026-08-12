@@ -20,7 +20,8 @@
     "db:seed": "node --experimental-strip-types scripts/seed.ts",
     "db:test-rls": "node --experimental-strip-types scripts/test-rls.ts",
     "db:migrate": "node --experimental-strip-types scripts/migrar.ts",
-    "db:sql": "node --experimental-strip-types scripts/sql.ts"
+    "db:sql": "node --experimental-strip-types scripts/sql.ts",
+    "icones": "node --experimental-strip-types scripts/gerar-icones.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.7.1",

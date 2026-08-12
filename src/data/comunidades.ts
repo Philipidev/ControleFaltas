@@ -46,7 +46,7 @@ export interface MinhaComunidade {
 /** Só as participações ATIVAS — convites pendentes vêm em useConvites(). */
 export function useMinhasComunidades(usuarioId: string): UseQueryResult<MinhaComunidade[]> {
   return useQuery({
-    queryKey: chaves.grupos(usuarioId),
+    queryKey: chaves.minhasComunidades(usuarioId),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('grupo_membros')
@@ -116,6 +116,11 @@ export interface MembroDaComunidade {
  * Quem não é membro ativo recebe só a própria linha (RLS), e quem administra
  * recebe também os pendentes. A tela não precisa saber disso: o servidor já
  * devolve o recorte certo para cada um.
+ *
+ * O embed precisa nomear a constraint. `grupo_membros` tem DOIS caminhos até
+ * `profiles` — `usuario_id` e `convidado_por` — e um `profiles(...)` solto faz
+ * o PostgREST recusar a query inteira por ambiguidade, não escolher um. Sem o
+ * nome, a lista voltava vazia e a tela concluía que ninguém era membro.
  */
 export function useMembros(grupoId: string): UseQueryResult<MembroDaComunidade[]> {
   return useQuery({
@@ -124,18 +129,31 @@ export function useMembros(grupoId: string): UseQueryResult<MembroDaComunidade[]
     queryFn: async () => {
       const { data, error } = await supabase
         .from('grupo_membros')
-        .select('usuario_id, papel, status, mensagem, profiles!inner(nome, emoji)')
+        .select(
+          'usuario_id, papel, status, mensagem, perfil:profiles!grupo_membros_usuario_id_fkey(nome, emoji)',
+        )
         .eq('grupo_id', grupoId)
       if (error !== null) lancar(error)
 
-      return data.map((m) => ({
-        usuarioId: m.usuario_id,
-        nome: m.profiles.nome,
-        emoji: m.profiles.emoji,
-        papel: m.papel as PapelComunidade,
-        status: m.status,
-        mensagem: m.mensagem,
-      }))
+      return data.map((m) => {
+        // O tipo gerado promete `perfil` sempre presente, porque usuario_id é
+        // NOT NULL. Em runtime não é: sem `!inner` o embed é left join, e o
+        // RLS de profiles esconde quem não é ativo nem tem pendência comigo —
+        // um membro `recusado`, por exemplo. O PostgREST devolve null ali.
+        //
+        // O cast ALARGA o tipo em vez de estreitar: está admitindo que o
+        // gerado mente, não silenciando um erro real.
+        const perfil = m.perfil as { nome: string; emoji: string } | null
+
+        return {
+          usuarioId: m.usuario_id,
+          nome: perfil?.nome ?? 'Alguém',
+          emoji: perfil?.emoji ?? '👤',
+          papel: m.papel as PapelComunidade,
+          status: m.status,
+          mensagem: m.mensagem,
+        }
+      })
     },
   })
 }

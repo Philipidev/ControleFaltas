@@ -55,7 +55,11 @@ export function CalendarioMes({
           <ChevronLeft className="size-5" />
         </button>
 
-        <h2 className="font-extrabold text-texto capitalize">{formatarMesAno(mesDe)}</h2>
+        {/* first-letter, não `capitalize`: "agosto de 2026" tem três palavras
+            e o capitalize do CSS maiúsculiza todas — "Agosto De 2026". */}
+        <h2 className="font-extrabold text-texto first-letter:uppercase">
+          {formatarMesAno(mesDe)}
+        </h2>
 
         <button
           type="button"

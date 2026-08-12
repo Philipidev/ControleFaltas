@@ -1,4 +1,5 @@
 import { LogOut } from 'lucide-react'
+import type { CSSProperties } from 'react'
 
 import { ResetSemestre } from './ResetSemestre.tsx'
 import { SeletorTema } from '@/components/SeletorTema.tsx'
@@ -166,7 +167,10 @@ function Faixa({
         onChange={(e) => {
           aoMudar(Number(e.target.value))
         }}
-        className="mt-2 w-full accent-[var(--c-acento)]"
+        // --preenchido diz ao CSS onde termina a parte percorrida. Sem isto o
+        // gradiente não teria como saber a posição — o valor só existe aqui.
+        style={{ '--preenchido': `${String(((valor - min) / (max - min)) * 100)}%` } as CSSProperties}
+        className="controle-faixa mt-2"
       />
     </label>
   )

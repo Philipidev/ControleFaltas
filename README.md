@@ -70,10 +70,12 @@ tentando o que a spec proíbe.
 |---|---|
 | `npm run dev` | servidor de desenvolvimento |
 | `npm run build` | `tsc --noEmit` + build estático em `dist/` |
-| `npm run test` | 195 testes do domínio (Vitest) |
+| `npm run test` | 234 testes do domínio (Vitest) |
 | `npm run typecheck` / `lint` | TypeScript strict / ESLint |
-| `npm run db:seed` | usuários e faltas de demonstração |
-| `npm run db:test-rls` | suíte de segurança contra o banco real |
+| `npm run db:migrate` | aplica as migrations pendentes |
+| `npm run db:sql` | consulta avulsa ou arquivo `.sql` |
+| `npm run db:seed` | usuários, faltas e comunidades de demonstração |
+| `npm run db:test-rls` | 29 ataques contra o banco real |
 
 ---
 
@@ -81,10 +83,12 @@ tentando o que a spec proíbe.
 
 ```
 supabase/migrations/   0001 tabelas · 0002 triggers · 0003 RLS · 0004 ranking · 0005 storage
-src/domain/            matemática da spec — TypeScript puro, sem React e sem rede, 195 testes
+                       0006 comunidades · 0007 RPCs das comunidades
+src/domain/            matemática da spec — TypeScript puro, sem React e sem rede, 234 testes
 src/data/              repositório tipado + hooks TanStack Query (nenhuma tela importa supabase)
 src/theme/             6 temas × claro/escuro, derivados em oklch
 src/features/          uma pasta por tela
+scripts/               migrate · sql · seed · test-rls (TypeScript, rodam com --experimental-strip-types)
 ```
 
 **Os cálculos rodam no cliente**, em `src/domain`, mesmo existindo a view `v_disciplina_status`.
@@ -118,12 +122,58 @@ disciplina com "quarta = 2h", isso descontaria a carga errada.
 
 ---
 
-## Widget (§7.4) — o que é possível de verdade
+## Celular: ícone, atalhos e widget (§7.4)
 
-Widget nativo de tela inicial só existe no Windows 11; iOS e Android não expõem isso para PWA.
-A tradução honesta é o **badge numérico no ícone** do app instalado (`navigator.setAppBadge`),
-com o número de disciplinas em amarelo ou vermelho, atualizado a cada falta — mais os
-`shortcuts` do manifest (segurar o ícone → "Marcar falta"). É o mais perto que dá para chegar.
+### Ícone na tela de início
+
+Funciona nos dois sistemas. O detalhe que quebrava só o iOS: **o iPhone ignora SVG em
+`apple-touch-icon`** — enquanto o link apontava para `/icone.svg`, "Adicionar à Tela de
+Início" usava um print da página no lugar do ícone. Os PNGs vêm de `npm run icones`, um
+rasterizador em Node puro (`node:zlib`, sem `sharp`) que desenha a mesma geometria do SVG.
+
+O `apple-touch-icon.png` é **quadrado e opaco** de propósito: o iOS aplica o próprio recorte
+squircle por cima. Se o PNG já viesse arredondado, os cantos transparentes cairiam dentro da
+máscara do sistema, e o iOS compõe transparência sobre preto — quatro lascas escuras na borda.
+
+### Atalhos (o mais perto de um widget)
+
+Segurar o ícone abre os `shortcuts` do manifest: Marcar falta, Meu risco, Calendário, Turmas.
+Toda URL de atalho precisa ser rota real — `/faltas/nova` apontava para rota inexistente e caía
+no catch-all, então o atalho "Marcar falta" levava para a home sem abrir nada.
+
+### Widget nativo: não dá, e por quê
+
+Widget de tela inicial no iOS é WidgetKit (Swift) e no Android é App Widget (Kotlin/Glance).
+**Não existe API web para nenhum dos dois**, nem para PWA instalado. O membro `widgets` do Web
+App Manifest existe, mas só alimenta o painel de widgets do Windows 11 no Edge — não é iOS nem
+Android.
+
+O que existe de fato, e está implementado: o **badge numérico no ícone**
+(`navigator.setAppBadge`) com as disciplinas em amarelo ou vermelho, atualizado a cada falta,
+mais os atalhos acima.
+
+Widget de verdade exigiria embrulhar o app em Capacitor e escrever uma extensão nativa por
+plataforma — outro projeto, com build de Xcode e Android Studio, conta de desenvolvedor Apple e
+revisão nas lojas. Fica registrado aqui para a decisão ser consciente, não uma surpresa.
+
+### Levar as aulas para o calendário do celular
+
+`Calendário → botão de agenda no topo` gera um `.ics` (RFC 5545) com a grade como evento
+semanal até o fim do semestre, e opcionalmente os prazos de atestado da §7.1.
+
+Também não há API para escrever no calendário nativo — o `.ics` é a ponte. O que muda a
+experiência é como ele chega lá: o caminho principal é `navigator.share` **com o arquivo**, que
+abre a bandeja do sistema com "Calendário" como destino (um toque). Baixar o arquivo é o que
+sobra no desktop, onde não há bandeja.
+
+Três detalhes do formato que costumam passar batido, e que `src/domain/ics.ts` cobre com testes:
+escape de `,` `;` `\` em TEXT (o nome "Medicina, Família e Comunidade" quebra o parser sem
+isso), dobra de linha em **75 octetos** e não caracteres (acento em UTF-8 ocupa dois bytes), e
+CRLF — com LF puro o iOS recusa o arquivo inteiro.
+
+O horário da aula vem de `disciplina_grade.hora_inicio` (migration 0012), que é nullable e não
+participa de cálculo nenhum de falta. Para as aulas sem horário, a exportação pergunta um
+padrão em vez de chutar em silêncio.
 
 ---
 

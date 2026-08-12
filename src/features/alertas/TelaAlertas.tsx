@@ -1,14 +1,17 @@
-import { BellOff, CalendarClock, Check } from 'lucide-react'
+import { BellOff, CalendarClock, Check, ChevronRight } from 'lucide-react'
+import { Link } from 'react-router'
 
 import { Cartao } from '@/components/ui/Cartao.tsx'
 import { useFaltas, useMarcarNotificacaoLida, useNotificacoes } from '@/data/queries.ts'
 import { formatarBR } from '@/domain/data.ts'
 import { faltasComPrazoCorrendo } from '@/domain/justificativa.ts'
+import { acaoDoAlerta, destinoDoAlerta, emojiDoAlerta } from '@/domain/notificacoes.ts'
 import { formatarHoras } from '@/domain/risco.ts'
 import { useUsuarioId } from '@/features/auth/contexto.ts'
 import { usePainel } from '@/features/dashboard/usePainel.ts'
 import { cn } from '@/lib/cn.ts'
 import { Cabecalho, Erro, Esqueleto, Vazio } from '@/layout/pecas.tsx'
+import type { LinhaNotificacao } from '@/types/database.ts'
 
 /**
  * §6 — Alertas e notificações.
@@ -120,39 +123,12 @@ export function TelaAlertas() {
             <ul className="space-y-2">
               {lista.map((n) => (
                 <li key={n.id}>
-                  <button
-                    type="button"
-                    onClick={() => {
+                  <LinhaAlerta
+                    notificacao={n}
+                    aoAbrir={() => {
                       if (!n.lida) marcarLida.mutate(n.id)
                     }}
-                    className={cn(
-                      'flex w-full items-start gap-3 rounded-card border-2 p-4 text-left transition-colors',
-                      n.lida
-                        ? 'border-borda bg-superficie opacity-70'
-                        : 'border-acento bg-superficie',
-                    )}
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="block font-extrabold text-texto">{n.titulo}</span>
-                      {n.corpo !== '' && (
-                        <span className="mt-0.5 block text-xs font-semibold text-texto-suave">
-                          {n.corpo}
-                        </span>
-                      )}
-                      <span className="mt-1 block text-[0.6875rem] font-semibold text-texto-fraco">
-                        {formatarBR(n.criado_em.slice(0, 10))}
-                      </span>
-                    </span>
-
-                    {n.lida ? (
-                      <Check className="size-4 shrink-0 text-texto-fraco" />
-                    ) : (
-                      <span
-                        aria-label="não lido"
-                        className="mt-1.5 size-2.5 shrink-0 rounded-full bg-acento"
-                      />
-                    )}
-                  </button>
+                  />
                 </li>
               ))}
             </ul>
@@ -168,5 +144,76 @@ export function TelaAlertas() {
         </Cartao>
       </main>
     </>
+  )
+}
+
+/**
+ * Um alerta com destino é um `Link`; sem destino, um `button`.
+ *
+ * A diferença importa além do estilo: o link ganha menu de contexto, abre em
+ * nova aba com ctrl+clique e é anunciado como link por leitor de tela. Um
+ * `button` com navigate() por dentro perde as três coisas.
+ */
+function LinhaAlerta({
+  notificacao: n,
+  aoAbrir,
+}: {
+  notificacao: LinhaNotificacao
+  aoAbrir: () => void
+}) {
+  const destino = destinoDoAlerta(n.tipo, n.dados, n.disciplina_id)
+  const emoji = emojiDoAlerta(n.tipo, n.titulo)
+  const acao = destino === null ? null : acaoDoAlerta(n.tipo)
+
+  const classe = cn(
+    'flex w-full items-start gap-3 rounded-card border-2 p-4 text-left transition-colors',
+    n.lida ? 'border-borda bg-superficie opacity-70' : 'border-acento bg-superficie',
+  )
+
+  const conteudo = (
+    <>
+      {emoji !== null && (
+        <span aria-hidden="true" className="text-xl leading-none">
+          {emoji}
+        </span>
+      )}
+
+      <span className="min-w-0 flex-1">
+        <span className="block font-extrabold text-texto">{n.titulo}</span>
+        {n.corpo !== '' && (
+          <span className="mt-0.5 block text-xs font-semibold text-texto-suave">{n.corpo}</span>
+        )}
+        <span className="mt-1 flex items-center gap-1.5 text-[0.6875rem] font-semibold text-texto-fraco">
+          {formatarBR(n.criado_em.slice(0, 10))}
+          {acao !== null && (
+            <>
+              <span aria-hidden="true">·</span>
+              <span className="font-bold text-acento">{acao}</span>
+              <ChevronRight className="size-3 text-acento" />
+            </>
+          )}
+        </span>
+      </span>
+
+      {n.lida ? (
+        <Check className="size-4 shrink-0 text-texto-fraco" />
+      ) : (
+        <span aria-label="não lido" className="mt-1.5 size-2.5 shrink-0 rounded-full bg-acento" />
+      )}
+    </>
+  )
+
+  if (destino !== null) {
+    return (
+      <Link to={destino} onClick={aoAbrir} className={classe}>
+        {conteudo}
+      </Link>
+    )
+  }
+
+  return (
+    <button type="button" onClick={aoAbrir} className={classe}>
+      {conteudo}
+    </button>
   )
 }

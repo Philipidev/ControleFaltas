@@ -11,7 +11,7 @@ import type { LinhaDisciplina, LinhaFalta, LinhaGrade } from '@/types/database.t
  */
 
 export type LinhaDisciplinaComGrade = LinhaDisciplina & {
-  disciplina_grade: Pick<LinhaGrade, 'dia_semana' | 'horas'>[]
+  disciplina_grade: Pick<LinhaGrade, 'dia_semana' | 'horas' | 'hora_inicio'>[]
 }
 
 export function paraDisciplina(linha: LinhaDisciplinaComGrade): Disciplina {
@@ -22,7 +22,7 @@ export function paraDisciplina(linha: LinhaDisciplinaComGrade): Disciplina {
     // `number`. Estreitar aqui evita que um dia_semana inválido vindo de uma
     // migração futura silenciosamente vire uma aula fantasma.
     if (ehDiaSemana(g.dia_semana)) {
-      grade.push({ dia: g.dia_semana, horas: g.horas })
+      grade.push({ dia: g.dia_semana, horas: g.horas, horaInicio: g.hora_inicio })
     }
   }
 

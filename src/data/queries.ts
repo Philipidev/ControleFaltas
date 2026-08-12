@@ -49,6 +49,50 @@ export function usePerfil(usuarioId: string): UseQueryResult<LinhaProfile> {
   })
 }
 
+export interface PerfilEditavel {
+  readonly nome: string
+  readonly emoji: string
+  readonly curso: string | null
+  readonly periodo: string | null
+  readonly turma: string | null
+}
+
+/**
+ * Salva o perfil.
+ *
+ * `role` NÃO entra aqui de propósito. A policy de UPDATE permite editar a
+ * própria linha, e é `trg_protege_role` que barra a auto-promoção a admin —
+ * mandar o campo só renderia um erro do banco. Curso/período/turma mexem em
+ * quais disciplinas o catálogo oferece (§2), então o painel também cai.
+ */
+export function useSalvarPerfil(usuarioId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (novo: PerfilEditavel) => {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          nome: novo.nome.trim(),
+          emoji: novo.emoji,
+          // '' viraria uma string vazia no banco, que depois apareceria como
+          // "Medicina ·  · Turma A" nas descrições. null é a ausência.
+          curso: novo.curso?.trim() === '' ? null : (novo.curso?.trim() ?? null),
+          periodo: novo.periodo?.trim() === '' ? null : (novo.periodo?.trim() ?? null),
+          turma: novo.turma?.trim() === '' ? null : (novo.turma?.trim() ?? null),
+        })
+        .eq('id', usuarioId)
+      if (error !== null) lancar(error)
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: chaves.perfil(usuarioId) })
+      void qc.invalidateQueries({ queryKey: chaves.disciplinas(usuarioId) })
+      // O nome e o emoji aparecem na lista de membros e no ranking.
+      void qc.invalidateQueries({ queryKey: ['comunidades'] })
+      void qc.invalidateQueries({ queryKey: ['ranking'] })
+    },
+  })
+}
+
 export function useConfiguracoes(usuarioId: string): UseQueryResult<LinhaConfiguracoes> {
   return useQuery({
     queryKey: chaves.configuracoes(usuarioId),
@@ -118,7 +162,7 @@ export function useMinhasDisciplinas(
     queryFn: async () => {
       const { data, error } = await supabase
         .from('matriculas')
-        .select('grupo_id, disciplinas!inner(*, disciplina_grade(dia_semana, horas))')
+        .select('grupo_id, disciplinas!inner(*, disciplina_grade(dia_semana, horas, hora_inicio))')
         .eq('usuario_id', usuarioId)
         .eq('ativa', true)
       if (error !== null) lancar(error)
@@ -140,7 +184,7 @@ export function useCatalogo(curso: string, periodo: string, semestre: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('disciplinas')
-        .select('*, disciplina_grade(dia_semana, horas)')
+        .select('*, disciplina_grade(dia_semana, horas, hora_inicio)')
         .eq('curso', curso)
         .eq('periodo', periodo)
         .eq('semestre', semestre)
@@ -265,7 +309,7 @@ export function useTodasDisciplinas() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('disciplinas')
-        .select('*, disciplina_grade(dia_semana, horas)')
+        .select('*, disciplina_grade(dia_semana, horas, hora_inicio)')
         .eq('personalizada', false)
         .order('curso')
         .order('periodo')
@@ -286,7 +330,8 @@ export interface EntradaCatalogo {
   readonly semestre: string
   readonly cargaHorariaTotal: number
   readonly cor: string
-  readonly grade: readonly { dia: number; horas: number }[]
+  /** `horaInicio` em 'HH:MM'; null quando o horário não é conhecido. */
+  readonly grade: readonly { dia: number; horas: number; horaInicio: string | null }[]
 }
 
 /**
@@ -338,6 +383,7 @@ export function useSalvarDisciplinaAdmin() {
             disciplina_id: id,
             dia_semana: g.dia,
             horas: g.horas,
+            hora_inicio: g.horaInicio ?? null,
           })),
         )
         if (error !== null) lancar(error)
@@ -347,6 +393,9 @@ export function useSalvarDisciplinaAdmin() {
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: chaves.todasDisciplinas() })
+      // A grade alimenta o painel do aluno e a exportação para o calendário.
+      void qc.invalidateQueries({ queryKey: ['disciplinas'] })
+      void qc.invalidateQueries({ queryKey: ['catalogo'] })
     },
   })
 }
@@ -532,6 +581,11 @@ export function useEntrarNoGrupo(usuarioId: string) {
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: chaves.grupos(usuarioId) })
+      // Entrar por código muda as MESMAS coisas que entrar pela tela de
+      // comunidades: a lista de turmas, as pendências e — porque entrar
+      // vincula as matrículas ao grupo — o painel de disciplinas.
+      void qc.invalidateQueries({ queryKey: ['comunidades'] })
+      void qc.invalidateQueries({ queryKey: chaves.disciplinas(usuarioId) })
     },
   })
 }

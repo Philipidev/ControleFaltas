@@ -336,21 +336,30 @@ async function testarComunidades(marina: Sessao, bia: Sessao): Promise<void> {
   // serviriam para o ataque nº 2: elas já dividem a turma com todo mundo, e
   // compartilha_grupo() daria true por aquele caminho, escondendo a falha.
   const EMAIL_INTRUSO = 'intruso@teste-rls.local'
-  const { data: criado } = await admin.auth.admin.createUser({
-    email: EMAIL_INTRUSO,
-    password: SENHA,
-    email_confirm: true,
-    user_metadata: { nome: 'Intruso' },
-  })
+  // O eremita nunca pede nada a ninguém. Ele existe só para provar que
+  // administrar um grupo não vira leitura de perfil fora dele — usar a Bia
+  // aqui daria falso positivo pelo mesmo motivo descrito acima.
+  const EMAIL_EREMITA = 'eremita@teste-rls.local'
 
-  let achado = criado.user?.id
-  if (achado === undefined) {
-    // Sobrou de uma execução anterior interrompida: reaproveita.
-    const { data: lista } = await admin.auth.admin.listUsers({ perPage: 200 })
-    achado = lista.users.find((u) => u.email === EMAIL_INTRUSO)?.id
+  async function prepararConta(email: string, nome: string): Promise<string> {
+    const { data: criado } = await admin.auth.admin.createUser({
+      email,
+      password: SENHA,
+      email_confirm: true,
+      user_metadata: { nome },
+    })
+    let achado = criado.user?.id
+    if (achado === undefined) {
+      // Sobrou de uma execução anterior interrompida: reaproveita.
+      const { data: lista } = await admin.auth.admin.listUsers({ perPage: 200 })
+      achado = lista.users.find((u) => u.email === email)?.id
+    }
+    if (achado === undefined) throw new Error(`Não consegui preparar ${email}.`)
+    return achado
   }
-  if (achado === undefined) throw new Error('Não consegui preparar o usuário intruso.')
-  const idIntruso: string = achado
+
+  const idIntruso = await prepararConta(EMAIL_INTRUSO, 'Intruso')
+  const idEremita = await prepararConta(EMAIL_EREMITA, 'Eremita')
 
   const intruso = await entrar(EMAIL_INTRUSO)
   const criados: string[] = []
@@ -410,6 +419,35 @@ async function testarComunidades(marina: Sessao, bia: Sessao): Promise<void> {
       'pendente não lê o perfil dos membros (compartilha_grupo)',
       (perfilAlheio ?? []).length === 0,
       `vazou o perfil de ${String(perfilAlheio?.[0]?.nome)}`,
+    )
+
+    // ---- 2b. e o outro lado: a assimetria da 0010 --------------------------
+    // Fechar compartilha_grupo() em 'ativo' também cegou quem administra: o
+    // painel mostrava o pedido sem nome, e §5 manda o admin escolher quem
+    // entra. administra_pendencia_de() abre esse caminho — e SÓ ele.
+    const { data: perfilDoPendente } = await marina.cliente
+      .from('profiles')
+      .select('id, nome')
+      .eq('id', idIntruso)
+
+    checar(
+      'quem administra lê o perfil de quem solicitou (0010)',
+      (perfilDoPendente ?? []).length === 1,
+      'o dono não consegue ver quem pediu para entrar',
+    )
+
+    // A permissão vale só para quem tem pendência. O eremita não pediu nada e
+    // não divide grupo com ninguém — se ele aparecer, administra_pendencia_de()
+    // está devolvendo true largo demais.
+    const { data: perfilDoEremita } = await marina.cliente
+      .from('profiles')
+      .select('id, nome')
+      .eq('id', idEremita)
+
+    checar(
+      'administrar um grupo não dá acesso a perfis sem vínculo com ele',
+      (perfilDoEremita ?? []).length === 0,
+      'vazou o perfil de alguém que não pediu nada',
     )
 
     // ---- 3. ranking --------------------------------------------------------
@@ -536,6 +574,7 @@ async function testarComunidades(marina: Sessao, bia: Sessao): Promise<void> {
       await admin.from('grupos').delete().eq('id', id)
     }
     await admin.auth.admin.deleteUser(idIntruso)
+    await admin.auth.admin.deleteUser(idEremita)
   }
 }
 

@@ -45,7 +45,10 @@ export function FolhaImportar({ aoFechar }: { aoFechar: () => void }) {
           semestre: semestreAtual(),
           cargaHorariaTotal: linha.cargaHorariaTotal,
           cor: CORES_MATERIA[i % CORES_MATERIA.length] ?? CORES_MATERIA[0],
-          grade: linha.grade,
+          // O formato de importação não carrega horário — quem importa uma
+          // grade em massa está trazendo dia e carga. O admin preenche depois,
+          // e a exportação usa o horário padrão enquanto isso.
+          grade: linha.grade.map((g) => ({ ...g, horaInicio: null })),
         })
         setProgresso(i + 1)
       }

@@ -241,16 +241,20 @@ export type Database = {
           /** Convenção EXTRACT(DOW) do Postgres: 0=domingo … 6=sábado. */
           dia_semana: number
           horas: number
+          /** 'HH:MM:SS'. Null = horário desconhecido; só a exportação usa. */
+          hora_inicio: string | null
         }
         Insert: {
           id?: string
           disciplina_id: string
           dia_semana: number
           horas: number
+          hora_inicio?: string | null
         }
         Update: {
           dia_semana?: number
           horas?: number
+          hora_inicio?: string | null
         }
         Relationships: [
           {

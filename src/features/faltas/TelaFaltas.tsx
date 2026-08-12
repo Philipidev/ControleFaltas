@@ -1,5 +1,6 @@
 import { Clock, FileCheck2, Paperclip, Plus, Trash2 } from 'lucide-react'
 import { useRef, useState } from 'react'
+import { useNavigate } from 'react-router'
 
 import { Botao } from '@/components/ui/Botao.tsx'
 import { Cartao } from '@/components/ui/Cartao.tsx'
@@ -29,12 +30,23 @@ import { Cabecalho, Erro, Esqueleto, Vazio } from '@/layout/pecas.tsx'
  * mensagem explicando por quê. O banco recusaria de qualquer jeito
  * (trg_prazo_atestado) — a UI só evita que a pessoa descubra isso por um erro.
  */
-export function TelaFaltas() {
+export function TelaFaltas({ abrirNova = false }: { abrirNova?: boolean }) {
   const usuarioId = useUsuarioId()
   const painel = usePainel(usuarioId)
   const faltas = useFaltas(usuarioId)
+  const navegar = useNavigate()
   const [filtro, setFiltro] = useState<string | null>(null)
-  const [marcando, setMarcando] = useState(false)
+  // §7.4 — o atalho do ícone (segurar → "Marcar falta") entra por /faltas/nova
+  // e cai aqui com a folha já aberta. Antes o atalho apontava para uma rota
+  // que não existia e caía no redirect para a home: o botão "Marcar falta" da
+  // tela de início do celular não marcava falta nenhuma.
+  const [marcando, setMarcando] = useState(abrirNova)
+
+  /** Fechar a folha volta a URL para /faltas — a rota /nova é só a entrada. */
+  function fecharFolha() {
+    setMarcando(false)
+    if (abrirNova) void navegar('/faltas', { replace: true })
+  }
 
   if (painel.erro !== null) return <Erro erro={painel.erro} />
   if (painel.carregando || faltas.isPending) return <Esqueleto />
@@ -116,9 +128,7 @@ export function TelaFaltas() {
           cartoes={painel.cartoes}
           limites={painel.limites}
           usuarioId={usuarioId}
-          aoFechar={() => {
-            setMarcando(false)
-          }}
+          aoFechar={fecharFolha}
         />
       )}
     </>

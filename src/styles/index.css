@@ -166,6 +166,61 @@
   /* Área segura do notch/gesture bar quando instalado como PWA */
   .area-segura-topo { padding-top: env(safe-area-inset-top, 0px); }
   .area-segura-base { padding-bottom: env(safe-area-inset-bottom, 0px); }
+
+  /* ------------------------------------------------------------------
+     Slider das faixas de risco.
+
+     `accent-color` sozinho não serve: o Chrome pinta a trilha VAZIA com um
+     neutro escuro derivado do próprio acento, e ignora o color-scheme. No
+     tema claro isso dava uma barra quase preta ao lado de uma teal. Com
+     appearance:none o desenho passa a ser nosso, e aí segue os tokens nos
+     doze temas sem depender de heurística de navegador.
+
+     O preenchimento é um gradiente até --preenchido, que o React atualiza
+     como custom property — assim a parte já percorrida também fica no acento,
+     que é o que `accent-color` fazia de certo.
+     ------------------------------------------------------------------ */
+  .controle-faixa {
+    appearance: none;
+    width: 100%;
+    height: 0.5rem;
+    border-radius: var(--raio-pill);
+    background: linear-gradient(
+      to right,
+      var(--c-acento) 0 var(--preenchido, 0%),
+      var(--c-superficie-2) var(--preenchido, 0%) 100%
+    );
+    cursor: pointer;
+  }
+
+  .controle-faixa::-webkit-slider-thumb {
+    appearance: none;
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 50%;
+    background: var(--c-acento);
+    /* A borda na cor da superfície separa o polegar da trilha mesmo quando
+       ele para em cima da parte já preenchida, que é da mesma cor. */
+    border: 3px solid var(--c-superficie);
+    box-shadow: 0 1px 3px oklch(0 0 0 / 0.3);
+    transition: transform var(--transicao-rapida);
+  }
+
+  .controle-faixa::-moz-range-thumb {
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 50%;
+    background: var(--c-acento);
+    border: 3px solid var(--c-superficie);
+    box-shadow: 0 1px 3px oklch(0 0 0 / 0.3);
+  }
+
+  .controle-faixa:active::-webkit-slider-thumb { transform: scale(1.15); }
+
+  .controle-faixa:focus-visible {
+    outline: 2px solid var(--c-acento);
+    outline-offset: 3px;
+  }
 }
 
 /* ==========================================================================
