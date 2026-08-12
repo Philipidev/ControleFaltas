@@ -135,6 +135,31 @@ O `apple-touch-icon.png` é **quadrado e opaco** de propósito: o iOS aplica o p
 squircle por cima. Se o PNG já viesse arredondado, os cantos transparentes cairiam dentro da
 máscara do sistema, e o iOS compõe transparência sobre preto — quatro lascas escuras na borda.
 
+### O botão "Colocar na tela de início"
+
+Aparece no login (discreto) e no Perfil (cartão). Ele **se comporta diferente em cada
+sistema**, porque os sistemas são diferentes:
+
+| Situação | O que o botão faz |
+|---|---|
+| Android / Chrome / Edge | Instala de verdade, num toque (`beforeinstallprompt` → `prompt()`) |
+| iPhone no Safari | Abre o passo a passo: Compartilhar → Adicionar à Tela de Início |
+| iPhone em outro navegador | Avisa que só o Safari cria o app de verdade |
+| Já instalado | Some |
+| Navegador sem suporte | Some |
+
+**No iOS não existe API de instalação** — nem `beforeinstallprompt`, nem equivalente. Lá
+o passo a passo *é* o recurso; um botão "Instalar" que não instala seria pior que nenhum.
+
+Dois detalhes que quebram silenciosamente:
+
+- O listener de `beforeinstallprompt` é registrado em `main.tsx`, **antes do render**. O
+  evento costuma disparar antes de o React montar, e um listener criado em `useEffect`
+  chegaria tarde — o botão nunca apareceria no Android.
+- A detecção de plataforma é uma função pura (`classificar`) com teste próprio. A diferença
+  entre iPad e Mac (user agent idêntico; só `maxTouchPoints` separa) e entre Safari e Chrome
+  do iPhone mora em detalhes de string impossíveis de conferir de um computador com Windows.
+
 ### Atalhos (o mais perto de um widget)
 
 Segurar o ícone abre os `shortcuts` do manifest: Marcar falta, Meu risco, Calendário, Turmas.

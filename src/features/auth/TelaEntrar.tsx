@@ -2,6 +2,7 @@ import { Loader2 } from 'lucide-react'
 import { useState } from 'react'
 
 import { Botao } from '@/components/ui/Botao.tsx'
+import { BotaoInstalar } from '@/features/pwa/BotaoInstalar.tsx'
 import { mensagemDeErro, supabase } from '@/lib/supabase.ts'
 
 type Modo = 'entrar' | 'criar'
@@ -146,6 +147,11 @@ export function TelaEntrar() {
             </Botao>
           </form>
         </div>
+
+        {/* Discreto: quem chega aqui veio para entrar, não para instalar. O
+            componente some sozinho se já estiver instalado ou se o navegador
+            não tiver caminho de instalação. */}
+        <BotaoInstalar variante="discreto" className="mt-5 w-full" />
 
         <p className="mt-5 text-center text-xs font-semibold text-texto-fraco">
           Suas faltas são só suas. Nem a coordenação, nem os colegas, nem o administrador

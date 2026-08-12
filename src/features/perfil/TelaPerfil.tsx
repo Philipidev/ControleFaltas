@@ -5,6 +5,7 @@ import { Botao } from '@/components/ui/Botao.tsx'
 import { Cartao } from '@/components/ui/Cartao.tsx'
 import { usePerfil, useSalvarPerfil } from '@/data/queries.ts'
 import { useSessao, useUsuarioId } from '@/features/auth/contexto.ts'
+import { BotaoInstalar } from '@/features/pwa/BotaoInstalar.tsx'
 import { Cabecalho, Erro, Esqueleto } from '@/layout/pecas.tsx'
 import { cn } from '@/lib/cn.ts'
 
@@ -50,6 +51,10 @@ export function TelaPerfil() {
             salvar.mutate(novo)
           }}
         />
+
+        {/* Some sozinho quando já está instalado — quem chegou aqui pelo app
+            na tela de início não precisa ver um convite para instalá-lo. */}
+        <BotaoInstalar />
 
         <div>
           <Botao
