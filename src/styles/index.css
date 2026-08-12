@@ -180,6 +180,45 @@
     border-inline-start: 6px solid var(--cor-materia, var(--c-acento));
   }
 
+  /* ------------------------------------------------------------------
+     Barra inferior — e a faixa que o iOS reserva embaixo sem usar.
+
+     `--faixa-fantasma` é medida em runtime por features/pwa/faixaFantasma.ts:
+     no iPhone em modo aplicativo o viewport é mais curto que a tela, então
+     `bottom: 0` não é a borda do aparelho. O módulo explica o porquê; aqui
+     ficam as três reações possíveis, porque só o aparelho responde se o
+     WebKit desenha dentro da faixa.
+
+     `bottom` e `padding-bottom` moram AQUI, e não em utilitárias no JSX: no
+     Tailwind v4 a camada `utilities` vence `components` por ordem de camada,
+     não por especificidade — um `bottom-0` no atributo class ganharia destes
+     seletores por mais específicos que fossem.
+
+     O piso de 0.5rem no recuo é o que mantém os rótulos descolados da borda
+     nos aparelhos em que o inset é zero (iPhone com botão home, Android com
+     três botões).
+     ------------------------------------------------------------------ */
+  .barra-inferior {
+    bottom: 0;
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 0.5rem);
+  }
+
+  /* Desconta a faixa do recuo: o indicador de gesto está do outro lado dela,
+     e não encosta na barra. */
+  html[data-barra='rasa'] .barra-inferior {
+    padding-bottom: max(
+      calc(env(safe-area-inset-bottom, 0px) - var(--faixa-fantasma, 0px)),
+      0.5rem
+    );
+  }
+
+  /* Empurra a barra para dentro da faixa, até a borda física do aparelho. O
+     recuo volta a ser o inset inteiro, que aí cai exatamente sobre o
+     indicador de gesto — a geometria da barra de abas nativa do iOS. */
+  html[data-barra='puxada'] .barra-inferior {
+    bottom: calc(-1 * var(--faixa-fantasma, 0px));
+  }
+
   /* Área segura do notch/gesture bar quando instalado como PWA */
   .area-segura-topo { padding-top: env(safe-area-inset-top, 0px); }
   .area-segura-base { padding-bottom: env(safe-area-inset-bottom, 0px); }

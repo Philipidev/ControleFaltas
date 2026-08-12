@@ -97,21 +97,22 @@ export function Layout({ ehAdmin, pendencias = 0 }: { ehAdmin: boolean; pendenci
       {/*
         Barra inferior — mobile.
 
-        O padding é `max(inset, 0.5rem)` e não o inset puro, porque o inset
-        varia demais entre aparelhos e em metade deles é ZERO:
+        A posição e o recuo de baixo estão em `.barra-inferior`, no CSS:
 
           iPhone com indicador de gesto ..... 34px → 48 + 34 = 82
           Android com navegação por gestos .. ~24px → 48 + 24 = 72
           Android com 3 botões .............. 0    → 48 +  8 = 56
           iPhone SE / com botão home ........ 0    → 48 +  8 = 56
 
-        Sem o piso de 8px, os dois últimos casos colavam os rótulos na borda
-        da tela. Com ele, a altura total fica entre 56 e 82 em todo aparelho —
-        dentro da faixa das barras nativas (56dp no Material, 83pt no iOS).
+        Ficaram lá, e não em utilitárias aqui, porque no iPhone em modo
+        aplicativo o fim do viewport não é a borda do aparelho — sobra uma
+        faixa que o iOS reserva e não usa. Compensá-la exige sobrescrever
+        `bottom` e `padding-bottom`, e utilitária do Tailwind não se deixa
+        sobrescrever por seletor.
       */}
       <nav
         aria-label="Navegação principal"
-        className="fixed inset-x-0 bottom-0 z-30 border-t border-borda bg-fundo/90 pb-[max(env(safe-area-inset-bottom,0px),0.5rem)] backdrop-blur-xl lg:hidden"
+        className="barra-inferior fixed inset-x-0 z-30 border-t border-borda bg-fundo/90 backdrop-blur-xl lg:hidden"
       >
         <ul className="mx-auto flex max-w-2xl">
           {PRINCIPAIS.map((d) => (

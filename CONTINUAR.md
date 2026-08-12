@@ -1,11 +1,10 @@
 # Continuar daqui
 
 Documento de passagem entre sessões. O assunto aberto é **um bug de layout no
-PWA instalado no iPhone**, e a instrumentação para diagnosticá-lo já está em
-produção — falta ler os números do aparelho.
+PWA instalado no iPhone**. Os números do aparelho **já foram lidos** — a causa
+está medida e resta uma pergunta, que só o aparelho responde.
 
-Estado do repositório: `main` em `9aa9629`, já publicado. Nada pendente de
-commit. Todo push em `main` dispara deploy na Vercel automaticamente.
+Todo push em `main` dispara deploy na Vercel automaticamente.
 
 ---
 
@@ -20,63 +19,105 @@ Ranking — fica com **espaço a mais embaixo**. Nas palavras do usuário:
 > "como se fosse o espaço reservado daquele campo de url do safari, mas quando
 > estou no pwa na home screen isso não aparece"
 
-Ou seja: o app parece reservar altura para uma barra de navegador que, em
-standalone, não existe.
+A intuição estava certa, e é literalmente o que os números mostram.
 
-**Importante:** o usuário mandou prints várias vezes e **as imagens não
-chegaram com conteúdo visível** para o assistente. Se acontecer de novo, peça
-para ele **salvar o print num arquivo no PC e passar o caminho** (ex.:
-`C:\Users\phili\Downloads\print.png`) — a ferramenta `Read` lê imagem do disco
-e isso funciona quando o anexo do chat falha.
+### O que o aparelho respondeu (12/08/2026)
 
-### O que JÁ foi descartado por auditoria de código
+Diagnóstico do aparelho, iPhone 17 Pro Max em standalone:
 
-- **Não há dupla contagem de safe-area.** A barra aplica o padding uma vez só,
-  em `src/layout/Layout.tsx`, via
-  `pb-[max(env(safe-area-inset-bottom,0px),0.5rem)]`. A classe utilitária
-  `.area-segura-base` foi removida da barra justamente para não somar duas
-  vezes; ela segue em uso só nas folhas (modais), onde está correta.
-- **`viewport-fit=cover` está presente** em `index.html`, que é pré-requisito
-  para os insets serem diferentes de zero no iOS.
-- **A altura da barra está certa em todos os aparelhos simulados.** Medido com
-  viewport real de 360×740, 375×667, 390×844 e 430×932: item de 48px, nenhum
-  rótulo cortado, total entre 57px e 83px conforme o inset.
+| | |
+|---|---|
+| `display-mode` / `navigator.standalone` | standalone / true |
+| `inset topo` / `inset base` | 62px / 34px |
+| `innerHeight` = `100dvh` = `visualViewport` | **912px** |
+| `100vh` = `screen.height` | **956px** |
+| `100svh` | 894px |
+| barra: altura / base em / sobra abaixo | 83px / 912px / **0px** |
 
-### A hipótese principal
+**A leitura:** a tela tem 956px de CSS, o viewport tem 912. **Sobram 44px de
+tela que o WebKit não entrega para o layout** e nos quais o sistema não desenha
+nada. `bottom: 0` é o fim do viewport, não a borda do vidro — por isso a barra
+para 44px acima do fundo, com o menu correto e encostado *no lugar errado*.
 
-O `100dvh` da casca do app (`h-dvh` no `<div>` raiz do `Layout`) pode estar
-computando **maior que a tela real** dentro do PWA em standalone no iOS. É um
-comportamento conhecido e errático do WebKit, e bate exatamente com a descrição
-de "espaço reservado da barra de URL".
+O trio `svh 894 / dvh 912 / vh 956` é a assinatura de um navegador com barra
+retrátil: 62px de chrome no menor viewport, 44px no atual, zero no maior. Em
+standalone essa barra não existe — o WebKit reserva o espaço mesmo assim.
 
-Se for isso, a correção é trocar a unidade da casca — `100svh`, ou `height:
-100%` com `html, body { height: 100% }`, que em standalone equivale à tela
-real. **Não mude no escuro:** confirme com os números primeiro.
+Somando o que empurra os rótulos para cima: **44px da faixa fantasma + 34px do
+`safe-area-inset-bottom`**, e esse inset é recuo para um indicador de gesto que
+está do outro lado da faixa e nem encosta na barra. Dá ~78px de vazio embaixo
+dos rótulos, que é exatamente o que se vê no print.
 
-### Como confirmar — o diagnóstico já está no ar
+### O print, medido pixel a pixel
 
-1. Abrir o app **instalado na tela de início** do iPhone (não no Safari — o
-   ponto é justamente o modo standalone).
-2. Ir em **Ajustes** → rolar até o fim → tocar em **"Diagnóstico do aparelho"**.
-3. Ler os valores.
+O PNG foi decodificado (zlib + un-filter, ~60 linhas de Node) e conferido
+linha a linha. Vale repetir a técnica: **o print é fonte de medida, não só
+ilustração**.
 
-O componente é `src/features/config/DiagnosticoViewport.tsx`. Ele mede
-`env()` por sonda (não é legível por JS direto) e usa três réguas de altura.
+- Escala: 736px de imagem = 440pt de tela e 1600 = 956 → o print é a tela
+  inteira, sem corte, em ambos os eixos.
+- A borda superior da barra (`border-t`) aparece na linha 1388 da imagem =
+  **829pt** = 912 − 83. Confere com o `getBoundingClientRect`.
+- De 1456 até o fim (1599) a cor é **uniforme**, `rgb(19,14,10)` — idêntica ao
+  fundo da página no topo da tela. Não há emenda visível onde o viewport
+  termina.
+- `background_color` do manifest é `#0b0b12` (azulado). O que está pintado na
+  faixa é o fundo do tema *fogo* (quente). Indício de que quem pinta ali é a
+  página, não o sistema — mas não é prova: o WKWebView também deriva a cor de
+  fundo da própria página para pintar o que está fora dela.
+- O indicador de gesto não aparece no print, o que continua sem explicação.
 
-### Como interpretar
+### A pergunta que sobrou
 
-| Leitura | Conclusão | Correção |
-|---|---|---|
-| `100dvh` **maior** que `innerHeight` | Confirmado: o iOS reserva altura de uma barra que não existe | Trocar `h-dvh` da casca por `h-svh`, ou `height:100%` com `html,body{height:100%}` |
-| `100dvh` **igual** a `innerHeight`, mas `sobra abaixo da barra` > 0 | A barra não está encostando no fundo do viewport | Investigar o `fixed bottom-0` — provável bloco de contenção criado por algum ancestral |
-| `inset base` **maior que 34px** | O iPhone 17 reporta safe-area maior que os modelos anteriores | Rever o `max(inset, 0.5rem)`; talvez limitar com `min(inset, 34px)` |
-| Tudo consistente e `sobra` = 0 | O espaço é o próprio safe-area, e está correto | Aí é decisão de gosto: reduzir o item de 48px, ou aceitar como está |
+**O WebKit desenha dentro da faixa de 44px?**
+
+- Se **sim** (modelo de "obscured insets", como o conteúdo que passa por baixo
+  da barra translúcida do Safari): a superfície tem os 956px e basta puxar a
+  barra para dentro da faixa. Fica com a geometria da barra de abas nativa.
+- Se **não**: a superfície tem 912px mesmo, e puxar a barra corta 44px dela.
+  Aí o certo é só descontar o inset, que naquele caso não protege nada.
+
+Não dá para responder isso do Windows, e as duas correções são incompatíveis.
+Por isso foi ao ar um **seletor de modo** dentro do Diagnóstico do aparelho:
+
+| Modo | O que faz |
+|---|---|
+| `normal` | comportamento antigo, para comparar |
+| `rasa` | desconta a faixa do recuo (**padrão** — melhora sem risco de corte) |
+| `puxada` | joga a barra para dentro da faixa, até a borda física |
+
+**Como decidir:** com `puxada`, olhar o aparelho. Barra encostada na borda e
+rótulos inteiros → o iOS desenha na faixa, `puxada` é a correção. Barra cortada
+ou rótulos comidos → `rasa` é a correção. Os números do diagnóstico *não*
+respondem isso: `barra: base em` vira 956 e `sobra` vira −44 de qualquer jeito,
+porque é o que o CSS pediu. Quem responde é o olho.
+
+O código: `src/features/pwa/faixaFantasma.ts` (mede a faixa e publica
+`--faixa-fantasma`, com teste da função pura), as três regras de
+`.barra-inferior` em `src/styles/index.css`, e o seletor em
+`DiagnosticoViewport.tsx`.
+
+### O que a medição já descartou
+
+- **A hipótese antiga estava errada.** Achava-se que `100dvh` computava *maior*
+  que a tela. É o contrário: `dvh` = `innerHeight` = 912, certinho, e quem
+  estoura é `100vh` = 956 = a tela inteira. Trocar `h-dvh` por `h-svh` teria
+  **piorado** (894 é ainda menor).
+- **A barra não tem defeito de posicionamento.** `sobra abaixo da barra = 0`:
+  ela está colada no fundo do viewport que recebeu. Não há bloco de contenção,
+  não há dupla contagem de safe-area.
+- **Nenhum ancestral com `backdrop-filter` atrapalha** o `position: fixed` da
+  barra (armadilha que já custou caro neste projeto — ver a lista mais abaixo).
+- **`viewport-fit=cover` e `black-translucent` estão corretos**: o `inset topo`
+  de 62px só é diferente de zero por causa deles, e o conteúdo sobe até o topo
+  físico da tela.
 
 ### Depois de resolver
 
-**Remover o diagnóstico.** É instrumentação temporária: apagar
-`DiagnosticoViewport.tsx` e o `<DiagnosticoViewport />` em
-`src/features/config/TelaConfiguracoes.tsx`.
+1. Fixar o modo vencedor direto no CSS e apagar os outros dois.
+2. **Remover o diagnóstico**: `DiagnosticoViewport.tsx`, o
+   `<DiagnosticoViewport />` em `TelaConfiguracoes.tsx` e o seletor de modo.
+   `faixaFantasma.ts` **fica** — a medição continua sendo necessária.
 
 ---
 
@@ -117,7 +158,7 @@ respondeu.
 npm run dev          # Vite em :5173 (service worker DESLIGADO em dev)
 npm run typecheck    # tsc --noEmit
 npm run lint         # eslint
-npm run test         # vitest — 285 testes
+npm run test         # vitest — 292 testes
 npm run build        # tsc + vite build (é o que a Vercel roda)
 npm run icones       # regera os PNGs do ícone a partir da geometria do SVG
 

@@ -74,7 +74,7 @@ tentando o que a spec proíbe.
 |---|---|
 | `npm run dev` | servidor de desenvolvimento |
 | `npm run build` | `tsc --noEmit` + build estático em `dist/` |
-| `npm run test` | 234 testes do domínio (Vitest) |
+| `npm run test` | 270 testes do domínio (Vitest) |
 | `npm run typecheck` / `lint` | TypeScript strict / ESLint |
 | `npm run db:migrate` | aplica as migrations pendentes |
 | `npm run db:sql` | consulta avulsa ou arquivo `.sql` |
