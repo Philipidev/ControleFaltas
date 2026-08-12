@@ -171,3 +171,18 @@ export const ROTULO_NIVEL: Readonly<Record<NivelDaRegra, string>> = {
   usuario: 'seu',
   padrao: 'padrão',
 }
+
+/**
+ * O mesmo, para caber no meio de uma frase.
+ *
+ * "hoje 25% (seu)" é legível para quem escreveu o código e para mais ninguém.
+ * Uma usuária de verdade travou na palavra "herdar" e chutou que fosse sobre
+ * atestado — sinal de que rótulo curto aqui não economiza nada, só transfere o
+ * trabalho de entender para quem está com pressa.
+ */
+export const FRASE_NIVEL: Readonly<Record<NivelDaRegra, string>> = {
+  disciplina: 'definida para esta disciplina',
+  comunidade: 'definida pela sua turma',
+  usuario: 'que é o seu ajuste em Ajustes',
+  padrao: 'o padrão do app',
+}

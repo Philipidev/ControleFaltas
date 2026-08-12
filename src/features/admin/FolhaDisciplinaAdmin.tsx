@@ -272,7 +272,7 @@ export function FolhaDisciplinaAdmin({
           herdado={{
             limite: LIMITES_PADRAO.limiteReprovacao,
             justificadaConta: false,
-            origem: 'da turma de quem cursa, ou do ajuste pessoal dela',
+            origem: 'que vem da turma de quem cursa, ou do ajuste pessoal dela',
           }}
         />
 

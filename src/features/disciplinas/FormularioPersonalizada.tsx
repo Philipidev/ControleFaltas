@@ -10,7 +10,7 @@ import {
   useMinhasDisciplinas,
 } from '@/data/queries.ts'
 import { useContextoDaRegra } from '@/data/regra.ts'
-import { ROTULO_NIVEL } from '@/domain/limites.ts'
+import { FRASE_NIVEL } from '@/domain/limites.ts'
 import { formatarHoras } from '@/domain/risco.ts'
 import { DIAS_SEMANA, NOME_DIA_CURTO, type DiaSemana } from '@/domain/tipos.ts'
 import { cn } from '@/lib/cn.ts'
@@ -204,7 +204,7 @@ export function FormularioPersonalizada({
           herdado={{
             limite: contexto.geral.limites.limiteReprovacao,
             justificadaConta: contexto.geral.regras.justificadaConta,
-            origem: ROTULO_NIVEL[contexto.geral.origem.limiteReprovacao],
+            origem: FRASE_NIVEL[contexto.geral.origem.limiteReprovacao],
           }}
         />
 

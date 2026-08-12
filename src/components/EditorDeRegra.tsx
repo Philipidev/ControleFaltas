@@ -32,8 +32,12 @@ export function EditorDeRegra({
     <fieldset className={className}>
       <legend className="text-sm font-extrabold text-texto">Regra desta disciplina</legend>
       <p className="mt-0.5 mb-3 text-xs font-semibold text-texto-fraco">
-        Em branco, herda o que já vale: {Math.round(herdado.limite * 100)}% ({herdado.origem}).
-        Preencha só se esta disciplina foge da regra geral.
+        Deixe em branco e esta disciplina segue a regra geral — hoje{' '}
+        <strong className="font-extrabold text-texto-suave">
+          {Math.round(herdado.limite * 100)}%
+        </strong>
+        , {herdado.origem}. Preencha só se esta disciplina tiver regra própria, como costuma
+        acontecer com estágio.
       </p>
 
       <label className="block">
@@ -63,14 +67,17 @@ export function EditorDeRegra({
 
       <div className="mt-3">
         <span className="mb-1.5 block text-xs font-bold text-texto-suave">
-          Falta justificada desconta da carga
+          Quando você anexa um atestado, aquela falta sai da conta?
         </span>
         <div className="flex gap-2">
           {(
             [
-              [null, 'Herdar'],
-              [true, 'Desconta'],
-              [false, 'Não desconta'],
+              // "Herdar" era jargão: uma usuária leu e chutou que fosse sobre
+              // atestado médico. O rótulo agora diz o que ACONTECE, e a linha
+              // abaixo diz no que isso dá hoje.
+              [null, 'Como já está'],
+              [true, 'Sai'],
+              [false, 'Continua contando'],
             ] as const
           ).map(([opcao, rotulo]) => (
             <button
@@ -81,7 +88,7 @@ export function EditorDeRegra({
                 aoMudar({ ...valor, justificadaConta: opcao })
               }}
               className={cn(
-                'flex-1 rounded-controle border-2 py-2 text-xs font-extrabold transition-colors',
+                'flex-1 rounded-controle border-2 px-1 py-2 text-xs font-extrabold transition-colors',
                 valor.justificadaConta === opcao
                   ? 'border-acento bg-acento-suave text-acento'
                   : 'border-borda text-texto-suave',
@@ -91,6 +98,26 @@ export function EditorDeRegra({
             </button>
           ))}
         </div>
+
+        <p className="mt-2 text-xs font-semibold text-texto-fraco">
+          {valor.justificadaConta === null ? (
+            <>
+              Segue a regra geral: hoje, a falta com atestado{' '}
+              <strong className="font-extrabold text-texto-suave">
+                {herdado.justificadaConta ? 'sai da conta' : 'continua contando'}
+              </strong>
+              . Se a regra mudar, esta disciplina muda junto.
+            </>
+          ) : (
+            <>
+              Só nesta disciplina: a falta com atestado{' '}
+              <strong className="font-extrabold text-texto-suave">
+                {valor.justificadaConta ? 'sai da conta' : 'continua contando'}
+              </strong>
+              , mesmo que a regra geral mude.
+            </>
+          )}
+        </p>
       </div>
     </fieldset>
   )

@@ -226,6 +226,18 @@ const SECOES: readonly Secao[] = [
           Aí sim você informa a carga e a grade. Ela é só sua: ninguém mais a enxerga, e ela
           não entra no ranking da turma — não haveria com quem comparar.
         </p>
+        <p>
+          No fim desse formulário aparece <strong>"Regra desta disciplina"</strong>, com os
+          campos em branco e a opção <strong>"Como já está"</strong> marcada.{' '}
+          <strong>Pode deixar assim.</strong> Em branco quer dizer "esta disciplina segue a
+          mesma regra das outras" — e o texto embaixo mostra em quanto isso dá hoje. Se um dia
+          a sua turma mudar o limite, esta disciplina muda junto, sozinha.
+        </p>
+        <p>
+          Preencher só vale a pena quando uma disciplina foge do resto: estágio costuma exigir
+          frequência maior que o restante do curso. Aí o número que você escrever passa a valer
+          só nela, e para de acompanhar a regra geral.
+        </p>
       </>
     ),
   },
