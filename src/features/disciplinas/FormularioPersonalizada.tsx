@@ -1,0 +1,190 @@
+import { Loader2 } from 'lucide-react'
+import { useState } from 'react'
+
+import { Botao } from '@/components/ui/Botao.tsx'
+import { CORES_MATERIA } from '@/data/cores.ts'
+import { useCriarDisciplinaPersonalizada } from '@/data/queries.ts'
+import { formatarHoras } from '@/domain/risco.ts'
+import { DIAS_SEMANA, NOME_DIA_CURTO, type DiaSemana } from '@/domain/tipos.ts'
+import { cn } from '@/lib/cn.ts'
+
+/**
+ * §2, opção secundária — cadastro de disciplina "avulsa"/pessoal.
+ *
+ * Aqui o aluno PRECISA informar carga e grade, porque não existe dado oficial
+ * para essa disciplina. É o oposto do fluxo do catálogo, e é por isso que a
+ * spec trata isto como secundário: manter a grade correta é justamente o
+ * trabalho que o catálogo do admin poupa.
+ */
+export function FormularioPersonalizada({
+  usuarioId,
+  curso,
+  periodo,
+  semestre,
+  aoConcluir,
+}: {
+  usuarioId: string
+  curso: string
+  periodo: string
+  semestre: string
+  aoConcluir: () => void
+}) {
+  const criar = useCriarDisciplinaPersonalizada(usuarioId)
+
+  const [nome, setNome] = useState('')
+  const [carga, setCarga] = useState('60')
+  const [cor, setCor] = useState<string>(CORES_MATERIA[0])
+  const [horasPorDia, setHorasPorDia] = useState<Partial<Record<DiaSemana, number>>>({})
+  const [erro, setErro] = useState<string | null>(null)
+
+  const grade = DIAS_SEMANA.flatMap((dia) => {
+    const horas = horasPorDia[dia]
+    return horas !== undefined && horas > 0 ? [{ dia, horas }] : []
+  })
+
+  const horasPorSemana = grade.reduce((s, g) => s + g.horas, 0)
+  const cargaNumero = Number(carga)
+  const valido = nome.trim().length > 0 && cargaNumero > 0 && grade.length > 0
+
+  async function enviar() {
+    setErro(null)
+    try {
+      await criar.mutateAsync({
+        nome: nome.trim(),
+        cargaHorariaTotal: cargaNumero,
+        cor,
+        curso,
+        periodo,
+        semestre,
+        grade,
+      })
+      aoConcluir()
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Não consegui criar.')
+    }
+  }
+
+  return (
+    <form
+      className="space-y-4"
+      onSubmit={(e) => {
+        e.preventDefault()
+        void enviar()
+      }}
+    >
+      <div>
+        <label htmlFor="nome-disc" className="mb-1.5 block text-sm font-extrabold text-texto">
+          Nome
+        </label>
+        <input
+          id="nome-disc"
+          value={nome}
+          onChange={(e) => {
+            setNome(e.target.value)
+          }}
+          placeholder="Ex: Libras (optativa)"
+          className="h-12 w-full rounded-controle border-2 border-borda bg-superficie-2 px-4 font-semibold text-texto outline-none placeholder:text-texto-fraco focus:border-acento"
+        />
+      </div>
+
+      <div>
+        <label htmlFor="carga-disc" className="mb-1.5 block text-sm font-extrabold text-texto">
+          Carga horária total do semestre
+        </label>
+        <input
+          id="carga-disc"
+          type="number"
+          min={1}
+          step={1}
+          value={carga}
+          onChange={(e) => {
+            setCarga(e.target.value)
+          }}
+          className="tabular h-12 w-full rounded-controle border-2 border-borda bg-superficie-2 px-4 font-semibold text-texto outline-none focus:border-acento"
+        />
+      </div>
+
+      <fieldset>
+        <legend className="mb-1.5 text-sm font-extrabold text-texto">
+          Horas de aula em cada dia
+        </legend>
+        <p className="mb-2.5 text-xs font-semibold text-texto-fraco">
+          É daqui que sai o desconto automático: faltar num dia de 4h custa 4h.
+        </p>
+        <div className="grid grid-cols-7 gap-1.5">
+          {DIAS_SEMANA.map((dia) => {
+            const horas = horasPorDia[dia] ?? 0
+            return (
+              <div key={dia} className="flex flex-col items-center gap-1">
+                <span className="text-[0.625rem] font-bold text-texto-fraco uppercase">
+                  {NOME_DIA_CURTO[dia]}
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  max={12}
+                  step={0.5}
+                  value={horas === 0 ? '' : horas}
+                  aria-label={`Horas na ${NOME_DIA_CURTO[dia]}`}
+                  onChange={(e) => {
+                    const v = Number(e.target.value)
+                    setHorasPorDia((atual) => ({ ...atual, [dia]: Number.isNaN(v) ? 0 : v }))
+                  }}
+                  placeholder="—"
+                  className={cn(
+                    'tabular h-11 w-full rounded-interno border-2 bg-superficie-2 text-center text-sm font-extrabold text-texto outline-none focus:border-acento',
+                    horas > 0 ? 'border-acento' : 'border-borda',
+                  )}
+                />
+              </div>
+            )
+          })}
+        </div>
+        {horasPorSemana > 0 && (
+          <p className="mt-2 text-xs font-semibold text-texto-suave">
+            {formatarHoras(horasPorSemana)} por semana ·{' '}
+            {cargaNumero > 0
+              ? `${String(Math.round(cargaNumero / horasPorSemana))} semanas de aula`
+              : ''}
+          </p>
+        )}
+      </fieldset>
+
+      <fieldset>
+        <legend className="mb-2 text-sm font-extrabold text-texto">Cor</legend>
+        <div className="flex gap-2">
+          {CORES_MATERIA.map((c) => (
+            <button
+              key={c}
+              type="button"
+              aria-label={`Cor ${c}`}
+              aria-pressed={cor === c}
+              onClick={() => {
+                setCor(c)
+              }}
+              className={cn(
+                'size-9 rounded-pill transition-transform',
+                cor === c && 'ring-2 ring-texto ring-offset-2 ring-offset-[var(--c-superficie)]',
+              )}
+              style={{ backgroundColor: c }}
+            />
+          ))}
+        </div>
+      </fieldset>
+
+      {erro !== null && (
+        <p
+          role="alert"
+          className="rounded-interno bg-vermelho-suave px-3 py-2.5 text-sm font-bold text-vermelho"
+        >
+          {erro}
+        </p>
+      )}
+
+      <Botao type="submit" larguraTotal disabled={!valido || criar.isPending}>
+        {criar.isPending && <Loader2 className="size-5 animate-spin" />}
+        Criar disciplina
+      </Botao>
+    </form>
+  )
+}

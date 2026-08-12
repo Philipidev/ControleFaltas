@@ -1,0 +1,31 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "framework": "vite",
+
+  "headers": [
+    {
+      "comment": "O service worker precisa ser revalidado sempre. Se o CDN cachear sw.js, o app fica preso numa versão antiga mesmo depois do deploy — o usuário vê a build velha até limpar o navegador.",
+      "source": "/sw.js",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }]
+    },
+    {
+      "source": "/manifest.webmanifest",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }]
+    },
+    {
+      "comment": "Os assets levam hash no nome, então podem ser cacheados para sempre.",
+      "source": "/assets/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+    }
+  ],
+
+  "rewrites": [
+    {
+      "comment": "Fallback de SPA: o app usa BrowserRouter, então /faltas e /disciplinas/:id não existem como arquivo. A Vercel checa o sistema de arquivos ANTES dos rewrites, então assets, sw.js e manifest continuam sendo servidos direto — só o que não casa com arquivo nenhum cai no index.html.",
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

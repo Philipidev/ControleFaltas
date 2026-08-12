@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="pt-BR" data-modo="dark" data-tema="fogo">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- viewport-fit=cover para o app respeitar o notch quando instalado -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5.0"
+    />
+    <meta name="description" content="Registre faltas por disciplina, veja o risco de reprovação por frequência e compare presença com a turma — sem expor os números de ninguém." />
+    <meta name="theme-color" content="#0b0b12" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#fffbf5" media="(prefers-color-scheme: light)" />
+    <meta name="color-scheme" content="dark light" />
+    <link rel="icon" type="image/svg+xml" href="/icone.svg" />
+    <link rel="apple-touch-icon" href="/icone.svg" />
+    <title>Controle de Faltas</title>
+
+    <!--
+      Tema aplicado antes do primeiro paint. Sem isto, o app pisca no tema
+      errado a cada carregamento — o defeito mais visível de qualquer app com
+      dark mode. Roda síncrono de propósito.
+    -->
+    <script>
+      ;(function () {
+        try {
+          var modo = localStorage.getItem('cf:modo') || 'system'
+          var tema = localStorage.getItem('cf:tema') || 'fogo'
+          var densidade = localStorage.getItem('cf:densidade') || 'confortavel'
+          var escuro =
+            modo === 'dark' ||
+            (modo === 'system' &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches)
+          var raiz = document.documentElement
+          raiz.dataset.modo = escuro ? 'dark' : 'light'
+          raiz.dataset.tema = tema
+          raiz.dataset.densidade = densidade
+          raiz.style.colorScheme = escuro ? 'dark' : 'light'
+        } catch (e) {
+          /* localStorage bloqueado: fica no padrão do HTML */
+        }
+      })()
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

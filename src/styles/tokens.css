@@ -1,0 +1,224 @@
+/* ==========================================================================
+   Tokens de tema
+   ==========================================================================
+
+   Dois eixos independentes no <html>:
+     data-modo  = light | dark
+     data-tema  = fogo | oceano | uva | doce | menta | contraste
+
+   Tudo é derivado em oklch a partir de duas variáveis por tema — matiz
+   (--t-h) e croma (--t-c). Isso rende dois ganhos concretos:
+
+   1. Seis temas × dois modos em ~40 linhas em vez de 12 paletas escritas à
+      mão, cada uma com sua chance de erro.
+   2. oklch é perceptualmente uniforme: fixando a mesma lightness, o roxo do
+      tema "Uva" tem o mesmo peso visual que o laranja do "Fogo". Em HSL, o
+      mesmo L=60% produz um amarelo ofuscante e um azul apagado.
+
+   ─────────────────────────────────────────────────────────────────────────
+   REGRA QUE NÃO SE QUEBRA: as cores do semáforo (verde/amarelo/vermelho/
+   reprovado) são um ramp SEMÂNTICO separado, afinado por modo e NUNCA
+   derivado de --t-h. O tema "Menta" não pode fazer tudo parecer aprovado, e
+   o "Doce" não pode fazer tudo parecer em risco. O acento decora; o semáforo
+   informa.
+   ========================================================================== */
+
+:root {
+  /* Tema padrão: Fogo — combina com o 🔥 do streak de presença (§7.5) */
+  --t-h: 50;
+  --t-c: 0.17;
+
+  /* ---- Geometria: cantos generosos, a assinatura do visual playful ---- */
+  --raio-card: 1.75rem;
+  --raio-card-interno: 1.25rem;
+  --raio-controle: 1rem;
+  --raio-pill: 9999px;
+
+  /* Altura do "lábio" 3D dos botões, que comprime no toque */
+  --labio: 4px;
+
+  --transicao-mola: 340ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  --transicao-rapida: 140ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ==========================================================================
+   Matiz e croma de cada tema
+   ========================================================================== */
+
+[data-tema='fogo']   { --t-h: 50;  --t-c: 0.17; }
+[data-tema='oceano'] { --t-h: 235; --t-c: 0.15; }
+[data-tema='uva']    { --t-h: 295; --t-c: 0.16; }
+[data-tema='doce']   { --t-h: 350; --t-c: 0.16; }
+[data-tema='menta']  { --t-h: 185; --t-c: 0.13; }
+[data-tema='contraste'] { --t-h: 250; --t-c: 0.2; }
+
+/* Amostra do tema — re-declarada em QUALQUER elemento com data-tema.
+   Uma custom property resolve seus var() no elemento onde é DECLARADA, e os
+   filhos herdam o valor já resolvido. Sem esta regra, um botão marcado com
+   data-tema="oceano" dentro do seletor herdaria o --c-acento do <html> e
+   todos os quadrinhos sairiam da mesma cor. Aqui a regra casa com o próprio
+   botão, então cada um resolve o oklch com o seu matiz. */
+[data-tema] {
+  --amostra: oklch(0.66 var(--t-c) var(--t-h));
+  --amostra-labio: oklch(0.48 var(--t-c) var(--t-h));
+}
+
+/* ==========================================================================
+   Modo claro
+   ========================================================================== */
+
+[data-modo='light'] {
+  color-scheme: light;
+
+  --c-fundo: oklch(0.985 0.008 var(--t-h));
+  --c-fundo-alt: oklch(0.965 0.014 var(--t-h));
+  --c-superficie: oklch(1 0 0);
+  --c-superficie-2: oklch(0.975 0.01 var(--t-h));
+  --c-borda: oklch(0.9 0.02 var(--t-h));
+  --c-borda-forte: oklch(0.82 0.03 var(--t-h));
+
+  --c-texto: oklch(0.24 0.025 var(--t-h));
+  --c-texto-suave: oklch(0.5 0.02 var(--t-h));
+  --c-texto-fraco: oklch(0.65 0.018 var(--t-h));
+
+  --c-acento: oklch(0.63 var(--t-c) var(--t-h));
+  --c-acento-forte: oklch(0.55 var(--t-c) var(--t-h));
+  /* o lábio do botão: mesma cor, bem mais escura, para ler como profundidade */
+  --c-acento-labio: oklch(0.46 calc(var(--t-c) * 0.9) var(--t-h));
+  --c-acento-suave: oklch(0.95 calc(var(--t-c) * 0.28) var(--t-h));
+  --c-acento-contraste: oklch(0.99 0.01 var(--t-h));
+
+  /* ---- Semáforo (§4) — independente do tema ---- */
+  --c-verde: oklch(0.58 0.16 145);
+  --c-verde-suave: oklch(0.94 0.05 145);
+  --c-verde-labio: oklch(0.44 0.14 145);
+
+  --c-amarelo: oklch(0.68 0.15 85);
+  --c-amarelo-suave: oklch(0.95 0.06 85);
+  --c-amarelo-labio: oklch(0.53 0.13 85);
+
+  --c-vermelho: oklch(0.56 0.2 28);
+  --c-vermelho-suave: oklch(0.94 0.05 28);
+  --c-vermelho-labio: oklch(0.43 0.18 28);
+
+  --c-reprovado: oklch(0.4 0.16 18);
+  --c-reprovado-suave: oklch(0.9 0.06 18);
+  --c-reprovado-labio: oklch(0.3 0.13 18);
+
+  --c-status-contraste: oklch(1 0 0);
+
+  --sombra-card: 0 1px 2px oklch(0.2 0.03 var(--t-h) / 0.06),
+                 0 8px 24px oklch(0.2 0.03 var(--t-h) / 0.08);
+  --sombra-flutuante: 0 12px 32px oklch(0.2 0.03 var(--t-h) / 0.16);
+}
+
+/* ==========================================================================
+   Modo escuro
+   ========================================================================== */
+
+[data-modo='dark'] {
+  color-scheme: dark;
+
+  /* Croma baixo de propósito: as superfícies só insinuam o matiz do tema. Com
+     croma alto o fundo vira marrom no tema Fogo e roxo no Uva, e aí a cor do
+     app compete com a cor do semáforo — que é a única que precisa gritar. */
+  --c-fundo: oklch(0.17 0.012 var(--t-h));
+  --c-fundo-alt: oklch(0.14 0.01 var(--t-h));
+  --c-superficie: oklch(0.225 0.015 var(--t-h));
+  --c-superficie-2: oklch(0.275 0.018 var(--t-h));
+  --c-borda: oklch(0.33 0.02 var(--t-h));
+  --c-borda-forte: oklch(0.44 0.026 var(--t-h));
+
+  --c-texto: oklch(0.965 0.012 var(--t-h));
+  --c-texto-suave: oklch(0.76 0.022 var(--t-h));
+  --c-texto-fraco: oklch(0.6 0.025 var(--t-h));
+
+  --c-acento: oklch(0.74 var(--t-c) var(--t-h));
+  --c-acento-forte: oklch(0.82 calc(var(--t-c) * 0.9) var(--t-h));
+  --c-acento-labio: oklch(0.5 calc(var(--t-c) * 0.95) var(--t-h));
+  --c-acento-suave: oklch(0.32 calc(var(--t-c) * 0.4) var(--t-h));
+  /* acento claro pede texto escuro em cima — contraste, não estilo */
+  --c-acento-contraste: oklch(0.18 0.03 var(--t-h));
+
+  /* ---- Semáforo (§4) — mais claro no escuro, para manter o contraste ---- */
+  --c-verde: oklch(0.78 0.17 145);
+  --c-verde-suave: oklch(0.32 0.06 145);
+  --c-verde-labio: oklch(0.55 0.15 145);
+
+  --c-amarelo: oklch(0.83 0.16 90);
+  --c-amarelo-suave: oklch(0.34 0.06 90);
+  --c-amarelo-labio: oklch(0.6 0.14 90);
+
+  --c-vermelho: oklch(0.7 0.19 28);
+  --c-vermelho-suave: oklch(0.32 0.08 28);
+  --c-vermelho-labio: oklch(0.5 0.18 28);
+
+  --c-reprovado: oklch(0.6 0.19 15);
+  --c-reprovado-suave: oklch(0.28 0.1 15);
+  --c-reprovado-labio: oklch(0.42 0.17 15);
+
+  --c-status-contraste: oklch(0.16 0.02 0);
+
+  --sombra-card: 0 1px 2px oklch(0 0 0 / 0.3), 0 8px 24px oklch(0 0 0 / 0.28);
+  --sombra-flutuante: 0 12px 32px oklch(0 0 0 / 0.45);
+}
+
+/* ==========================================================================
+   Tema "Alto contraste" — acessibilidade, não decoração
+   Zera o croma das superfícies e empurra texto/borda para os extremos.
+   ========================================================================== */
+
+[data-tema='contraste'][data-modo='light'] {
+  --c-fundo: oklch(1 0 0);
+  --c-fundo-alt: oklch(0.96 0 0);
+  --c-superficie: oklch(1 0 0);
+  --c-superficie-2: oklch(0.96 0 0);
+  --c-borda: oklch(0.45 0 0);
+  --c-borda-forte: oklch(0.2 0 0);
+  --c-texto: oklch(0.12 0 0);
+  --c-texto-suave: oklch(0.32 0 0);
+  --c-texto-fraco: oklch(0.44 0 0);
+  --c-acento: oklch(0.45 0.24 262);
+  --c-acento-forte: oklch(0.36 0.24 262);
+  --c-acento-labio: oklch(0.28 0.2 262);
+  --c-acento-suave: oklch(0.93 0.06 262);
+  --c-verde: oklch(0.45 0.17 145);
+  --c-amarelo: oklch(0.55 0.15 80);
+  --c-vermelho: oklch(0.47 0.22 28);
+  --c-reprovado: oklch(0.3 0.16 18);
+}
+
+[data-tema='contraste'][data-modo='dark'] {
+  --c-fundo: oklch(0.08 0 0);
+  --c-fundo-alt: oklch(0.03 0 0);
+  --c-superficie: oklch(0.16 0 0);
+  --c-superficie-2: oklch(0.23 0 0);
+  --c-borda: oklch(0.55 0 0);
+  --c-borda-forte: oklch(0.8 0 0);
+  --c-texto: oklch(1 0 0);
+  --c-texto-suave: oklch(0.85 0 0);
+  --c-texto-fraco: oklch(0.7 0 0);
+  --c-acento: oklch(0.8 0.19 250);
+  --c-acento-forte: oklch(0.88 0.16 250);
+  --c-acento-labio: oklch(0.5 0.2 250);
+  --c-acento-suave: oklch(0.26 0.08 250);
+  --c-verde: oklch(0.85 0.19 145);
+  --c-amarelo: oklch(0.9 0.17 95);
+  --c-vermelho: oklch(0.75 0.2 28);
+  --c-reprovado: oklch(0.65 0.2 15);
+}
+
+/* ==========================================================================
+   Densidade — o mesmo app confortável no polegar e denso no desktop
+   ========================================================================== */
+
+[data-densidade='compacta'] {
+  --raio-card: 1.25rem;
+  --raio-card-interno: 0.875rem;
+  --raio-controle: 0.75rem;
+  --escala-espaco: 0.8;
+}
+
+[data-densidade='confortavel'] {
+  --escala-espaco: 1;
+}

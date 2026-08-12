@@ -1,0 +1,42 @@
+# dependências
+node_modules/
+
+# build
+dist/
+dist-ssr/
+dev-dist/
+*.local
+
+# ambiente — .env.local guarda a service_role key, que ignora todo o RLS
+.env
+.env.local
+.env.*.local
+
+# editores
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# testes
+coverage/
+
+# supabase CLI
+supabase/.branches/
+supabase/.temp/
+
+# sistema
+.DS_Store
+Thumbs.db

@@ -1,0 +1,213 @@
+@import 'tailwindcss';
+@import './tokens.css';
+
+/* ==========================================================================
+   Ponte entre os tokens e as utilitárias do Tailwind
+   `inline` faz o Tailwind emitir var(--c-*) em vez de resolver a cor no
+   build — é o que permite trocar de tema em runtime sem recompilar nada.
+   ========================================================================== */
+@theme inline {
+  --color-fundo: var(--c-fundo);
+  --color-fundo-alt: var(--c-fundo-alt);
+  --color-superficie: var(--c-superficie);
+  --color-superficie-2: var(--c-superficie-2);
+  --color-borda: var(--c-borda);
+  --color-borda-forte: var(--c-borda-forte);
+
+  --color-texto: var(--c-texto);
+  --color-texto-suave: var(--c-texto-suave);
+  --color-texto-fraco: var(--c-texto-fraco);
+
+  --color-acento: var(--c-acento);
+  --color-acento-forte: var(--c-acento-forte);
+  --color-acento-labio: var(--c-acento-labio);
+  --color-acento-suave: var(--c-acento-suave);
+  --color-acento-contraste: var(--c-acento-contraste);
+
+  --color-verde: var(--c-verde);
+  --color-verde-suave: var(--c-verde-suave);
+  --color-amarelo: var(--c-amarelo);
+  --color-amarelo-suave: var(--c-amarelo-suave);
+  --color-vermelho: var(--c-vermelho);
+  --color-vermelho-suave: var(--c-vermelho-suave);
+  --color-reprovado: var(--c-reprovado);
+  --color-reprovado-suave: var(--c-reprovado-suave);
+  --color-status-contraste: var(--c-status-contraste);
+
+  --radius-card: var(--raio-card);
+  --radius-interno: var(--raio-card-interno);
+  --radius-controle: var(--raio-controle);
+
+  --shadow-card: var(--sombra-card);
+  --shadow-flutuante: var(--sombra-flutuante);
+
+  --font-sans:
+    ui-rounded, 'SF Pro Rounded', 'Segoe UI Variable Display', 'Segoe UI', Nunito,
+    system-ui, -apple-system, 'Helvetica Neue', sans-serif;
+}
+
+/* ==========================================================================
+   Base
+   ========================================================================== */
+@layer base {
+  * {
+    border-color: var(--c-borda);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    /* o app é uma tela só por vez; o scroll horizontal nunca é intencional */
+    overflow-x: hidden;
+  }
+
+  body {
+    background-color: var(--c-fundo);
+    color: var(--c-texto);
+    font-family: var(--font-sans);
+    /* peso um pouco maior é parte do visual playful */
+    font-weight: 500;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    /* mobile-first: nada de bounce/scroll horizontal atrás do bottom-nav */
+    overscroll-behavior-y: none;
+    min-height: 100dvh;
+  }
+
+  h1, h2, h3, h4 {
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+
+  /* Dígitos de largura fixa só onde números se alinham em coluna: linhas de
+     tabela, marcações de eixo, listas de horas. Num número grande e solitário
+     eles deixam o valor frouxo — "121" com todo dígito na largura do "0". */
+  .tabular, th, td {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* O número que a tela lidera: figuras proporcionais e a mesma fonte de
+     todo o resto (uma display/serif aqui leria como enfeite fora de marca). */
+  .figura-hero {
+    font-variant-numeric: proportional-nums;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--c-acento);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Toque no celular sem o flash cinza do Android */
+  button, a, [role='button'] {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  ::selection {
+    background: var(--c-acento-suave);
+    color: var(--c-texto);
+  }
+
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: var(--c-borda-forte);
+    border-radius: 9999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+}
+
+/* ==========================================================================
+   Componentes
+   ========================================================================== */
+@layer components {
+  /* ------------------------------------------------------------------
+     Botão 3D — a assinatura do visual escolhido.
+     O "lábio" é um box-shadow sólido embaixo; ao pressionar, o botão desce
+     exatamente a altura do lábio e o lábio some. O olho lê como um botão
+     físico afundando, e o dedo recebe a confirmação sem esperar rede.
+     ------------------------------------------------------------------ */
+  .botao-3d {
+    position: relative;
+    box-shadow: 0 var(--labio) 0 0 var(--cor-labio, var(--c-acento-labio));
+    transition:
+      transform var(--transicao-rapida),
+      box-shadow var(--transicao-rapida),
+      filter var(--transicao-rapida);
+  }
+
+  .botao-3d:active:not(:disabled) {
+    transform: translateY(var(--labio));
+    box-shadow: 0 0 0 0 var(--cor-labio, var(--c-acento-labio));
+  }
+
+  .botao-3d:disabled {
+    box-shadow: none;
+    opacity: 0.5;
+  }
+
+  .cartao {
+    background: var(--c-superficie);
+    border-radius: var(--raio-card);
+    box-shadow: var(--sombra-card);
+    border: 1px solid var(--c-borda);
+  }
+
+  /* Faixa lateral colorida por matéria, usada nos cards de disciplina */
+  .faixa-materia {
+    border-inline-start: 6px solid var(--cor-materia, var(--c-acento));
+  }
+
+  /* Área segura do notch/gesture bar quando instalado como PWA */
+  .area-segura-topo { padding-top: env(safe-area-inset-top, 0px); }
+  .area-segura-base { padding-bottom: env(safe-area-inset-bottom, 0px); }
+}
+
+/* ==========================================================================
+   Transição de tema (View Transitions API)
+   O tema novo é revelado num círculo que cresce a partir do botão que foi
+   tocado. Puramente decorativo, e por isso a primeira coisa a sumir quando
+   a pessoa pede menos movimento.
+   ========================================================================== */
+::view-transition-old(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-new(root) {
+  animation: revelar-tema 480ms cubic-bezier(0.4, 0, 0.2, 1);
+  mix-blend-mode: normal;
+}
+
+@keyframes revelar-tema {
+  from {
+    clip-path: circle(0% at var(--origem-x, 50%) var(--origem-y, 50%));
+  }
+  to {
+    clip-path: circle(150% at var(--origem-x, 50%) var(--origem-y, 50%));
+  }
+}
+
+/* ==========================================================================
+   Movimento reduzido — respeitado de verdade, não só nas animações grandes
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none !important;
+  }
+}
