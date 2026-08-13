@@ -127,8 +127,9 @@ export function TelaCalendario() {
                     <span className="min-w-0 flex-1 truncate text-sm font-bold text-texto">
                       {d?.nome ?? 'Disciplina removida'}
                     </span>
+                    {/* Acento, não verde: ver a mesma etiqueta em TelaDisciplina. */}
                     {f.justificada && (
-                      <span className="rounded-pill bg-verde-suave px-2 py-0.5 text-[0.6875rem] font-bold text-verde">
+                      <span className="rounded-pill bg-acento-suave px-2 py-0.5 text-[0.6875rem] font-bold text-acento">
                         atestado
                       </span>
                     )}
