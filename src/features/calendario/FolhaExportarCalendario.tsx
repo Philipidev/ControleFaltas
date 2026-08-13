@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 
 import { Botao } from '@/components/ui/Botao.tsx'
 import { fimProvavelDoSemestre, formatarBR, hojeISO } from '@/domain/data.ts'
-import { gerarIcs, type AulaParaExportar, type PrazoParaExportar } from '@/domain/ics.ts'
+import { gerarIcs, type AulaParaExportar } from '@/domain/ics.ts'
 import { NOME_DIA_CURTO, type Disciplina } from '@/domain/tipos.ts'
 import { cn } from '@/lib/cn.ts'
 
@@ -35,11 +35,9 @@ function podeCompartilhar(arquivo: File): boolean {
  */
 export function FolhaExportarCalendario({
   disciplinas,
-  prazos,
   aoFechar,
 }: {
   disciplinas: readonly Disciplina[]
-  prazos: readonly PrazoParaExportar[]
   aoFechar: () => void
 }) {
   const hoje = hojeISO()
@@ -48,7 +46,6 @@ export function FolhaExportarCalendario({
   )
   const [horaPadrao, setHoraPadrao] = useState('08:00')
   const [fim, setFim] = useState(() => fimProvavelDoSemestre(hoje))
-  const [incluirPrazos, setIncluirPrazos] = useState(prazos.length > 0)
 
   const selecionadas = disciplinas.filter((d) => escolhidas.has(d.id))
   const aulas: AulaParaExportar[] = selecionadas.flatMap((d) =>
@@ -73,7 +70,6 @@ export function FolhaExportarCalendario({
   function montarArquivo(): File {
     const ics = gerarIcs({
       aulas,
-      prazos: incluirPrazos ? prazos : [],
       inicio: hoje,
       fim,
       horaPadrao,
@@ -243,30 +239,6 @@ export function FolhaExportarCalendario({
             </p>
           )}
 
-          {prazos.length > 0 && (
-            <button
-              type="button"
-              aria-pressed={incluirPrazos}
-              onClick={() => {
-                setIncluirPrazos(!incluirPrazos)
-              }}
-              className={cn(
-                'flex w-full items-center gap-3 rounded-controle border-2 px-3.5 py-3 text-left transition-colors',
-                incluirPrazos ? 'border-acento bg-acento-suave' : 'border-borda',
-              )}
-            >
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-bold text-texto">
-                  Incluir prazos de atestado
-                </span>
-                <span className="block text-xs font-semibold text-texto-suave">
-                  {prazos.length === 1
-                    ? '1 falta ainda dentro dos 7 dias'
-                    : `${String(prazos.length)} faltas ainda dentro dos 7 dias`}
-                </span>
-              </span>
-            </button>
-          )}
         </div>
 
         {erro !== null && (

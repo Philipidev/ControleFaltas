@@ -10,7 +10,7 @@ import {
   horasQueContam,
   statusPara,
 } from './risco.ts'
-import { LIMITES_PADRAO, type Falta } from './tipos.ts'
+import type { Falta } from './tipos.ts'
 
 /**
  * Os números aqui saem da própria especificação:
@@ -121,31 +121,27 @@ describe('calcularRisco — o exemplo "8h / 70h" da §7.2', () => {
   })
 })
 
-describe('calcularRisco — §7.1: justificada conta ou não', () => {
+describe('calcularRisco — §7.1: o atestado é anotação, não desconto', () => {
   const faltas = [falta('2026-08-10', 4), falta('2026-08-12', 2, true)]
 
-  it('por padrão, a justificada não desconta da carga horária', () => {
+  it('a falta com atestado conta igual à sem', () => {
     const risco = calcularRisco(CARGA_MFC, faltas)
-    expect(risco.totalFaltado).toBe(4)
+    expect(risco.totalFaltado).toBe(6)
+    expect(risco.percentual).toBeCloseTo(6 / CARGA_MFC, 10)
+  })
+
+  it('o contador do atestado é subconjunto do total, não parcela descontada', () => {
+    const risco = calcularRisco(CARGA_MFC, faltas)
     expect(risco.totalJustificado).toBe(2)
-    expect(risco.qtdFaltas).toBe(1)
+    expect(risco.qtdFaltas).toBe(2)
     expect(risco.qtdJustificadas).toBe(1)
   })
 
-  it('com justificadaConta = true, ela entra na conta', () => {
-    const risco = calcularRisco(CARGA_MFC, faltas, LIMITES_PADRAO, {
-      justificadaConta: true,
-      justificadaQuebraStreak: false,
-    })
-    expect(risco.totalFaltado).toBe(6)
-  })
-
-  it('o contador separado continua existindo nos dois modos', () => {
-    const comConta = calcularRisco(CARGA_MFC, faltas, LIMITES_PADRAO, {
-      justificadaConta: true,
-      justificadaQuebraStreak: false,
-    })
-    expect(comConta.totalJustificado).toBe(2)
+  it('marcar todas com atestado não muda o risco', () => {
+    const todasComAtestado = [falta('2026-08-10', 4, true), falta('2026-08-12', 2, true)]
+    expect(calcularRisco(CARGA_MFC, todasComAtestado).totalFaltado).toBe(
+      calcularRisco(CARGA_MFC, faltas).totalFaltado,
+    )
   })
 })
 
@@ -174,17 +170,12 @@ describe('calcularRisco — casos de borda', () => {
 })
 
 describe('horasQueContam', () => {
-  it('ignora justificadas por padrão', () => {
-    expect(horasQueContam([falta('2026-08-10', 4), falta('2026-08-12', 2, true)])).toBe(4)
+  it('soma todas as horas, com atestado ou sem', () => {
+    expect(horasQueContam([falta('2026-08-10', 4), falta('2026-08-12', 2, true)])).toBe(6)
   })
 
-  it('soma tudo quando a regra do curso manda contar', () => {
-    expect(
-      horasQueContam([falta('2026-08-10', 4), falta('2026-08-12', 2, true)], {
-        justificadaConta: true,
-        justificadaQuebraStreak: false,
-      }),
-    ).toBe(6)
+  it('uma lista só de justificadas não some da conta', () => {
+    expect(horasQueContam([falta('2026-08-10', 4, true)])).toBe(4)
   })
 })
 

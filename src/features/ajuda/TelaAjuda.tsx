@@ -55,11 +55,19 @@ const SECOES: readonly Secao[] = [
           a recusa vem do banco, então vale mesmo que algo tente registrar por fora.
         </p>
         <p>
-          <strong>Atestado:</strong> você tem <strong>7 dias corridos</strong> a partir da data
-          da falta para justificá-la, em Faltas. Passou disso, o app não deixa mais — é a
-          janela que a faculdade costuma dar, e fingir que ela não existe seria mentir para
-          você. Se a falta justificada some da conta de risco ou continua nela é decisão da
-          regra do curso, explicada abaixo.
+          <strong>Atestado:</strong> ao marcar a falta, o app pergunta se você tem atestado
+          para ela. Se o atestado cobre vários dias, preencha o &ldquo;cobre até&rdquo; e ele
+          marca de uma vez as faltas já registradas do período, em todas as disciplinas. Não
+          há prazo: dá para marcar quando quiser, inclusive meses depois.
+        </p>
+        <p>
+          <strong>Mas a falta com atestado continua contando</strong> para o limite, e isso é
+          de propósito. Em boa parte das faculdades o atestado comum não abona frequência — só
+          o regime de exercícios domiciliares faz isso, e ele é para afastamento longo, pedido
+          na secretaria. Um app que descontasse sozinho mostraria verde para quem a secretaria
+          vê em vermelho. A marcação é o seu registro de que o papel existe: aparece separada,
+          em &ldquo;3 faltas, 2 com atestado&rdquo;, e vai no relatório em coluna própria. O
+          que ela nunca faz é derrubar o seu percentual.
         </p>
       </>
     ),
@@ -144,7 +152,7 @@ const SECOES: readonly Secao[] = [
           <strong>Virada de semestre.</strong> Quem administra a turma anuncia o período novo,
           e todo mundo recebe um aviso. Mas ninguém apaga o dado de ninguém: quem arquiva o seu
           é você, em Relatórios. Guarda-se o resumo por disciplina no histórico; as faltas
-          individuais — datas e atestados — não voltam, então baixe o backup antes, que fica
+          individuais — datas e marcações de atestado — não voltam, então baixe o backup antes, que fica
           logo acima do botão.
         </p>
       </>
@@ -192,9 +200,6 @@ const SECOES: readonly Secao[] = [
             <strong>Resumo da semana</strong> — quantas faltas, em quais disciplinas.
           </li>
           <li>
-            <strong>Prazo de atestado</strong> — a janela de 7 dias está acabando.
-          </li>
-          <li>
             <strong>Sequência</strong> — marcos de dias sem faltar.
           </li>
         </ul>
@@ -227,11 +232,10 @@ const SECOES: readonly Secao[] = [
           não entra no ranking da turma — não haveria com quem comparar.
         </p>
         <p>
-          No fim desse formulário aparece <strong>"Regra desta disciplina"</strong>, com os
-          campos em branco e a opção <strong>"Como já está"</strong> marcada.{' '}
-          <strong>Pode deixar assim.</strong> Em branco quer dizer "esta disciplina segue a
-          mesma regra das outras" — e o texto embaixo mostra em quanto isso dá hoje. Se um dia
-          a sua turma mudar o limite, esta disciplina muda junto, sozinha.
+          No fim desse formulário aparece <strong>"Regra desta disciplina"</strong>, com o campo
+          em branco. <strong>Pode deixar assim.</strong> Em branco quer dizer "esta disciplina
+          segue a mesma regra das outras" — e o texto embaixo mostra em quanto isso dá hoje. Se
+          um dia a sua turma mudar o limite, esta disciplina muda junto, sozinha.
         </p>
         <p>
           Preencher só vale a pena quando uma disciplina foge do resto: estágio costuma exigir
@@ -260,9 +264,8 @@ const SECOES: readonly Secao[] = [
         </p>
         <p>
           <strong>Levar as aulas para o calendário.</strong> Em Calendário, o botão de agenda
-          gera um arquivo com a sua grade como evento semanal até o fim do semestre, e
-          opcionalmente com os prazos de atestado. No celular ele abre direto a bandeja de
-          compartilhamento, com o Calendário como destino.
+          gera um arquivo com a sua grade como evento semanal até o fim do semestre. No celular
+          ele abre direto a bandeja de compartilhamento, com o Calendário como destino.
         </p>
       </>
     ),
@@ -280,7 +283,7 @@ const SECOES: readonly Secao[] = [
           as disciplinas em si não são apagadas.
         </p>
         <p>
-          <strong>O que não volta:</strong> as datas de cada falta e os atestados anexados. O
+          <strong>O que não volta:</strong> as datas de cada falta e as marcações de atestado. O
           histórico guarda o retrato final (percentual, horas, situação), não o detalhe. Por
           isso o backup em JSON fica logo acima do botão: ele leva tudo, e é o único jeito de
           recuperar o detalhe depois.

@@ -265,7 +265,6 @@ async function semearComunidades(): Promise<void> {
       limite_reprovacao: 0.25,
       faixa_verde: 0.15,
       faixa_amarela: 0.2,
-      justificada_conta: false,
       // O mesmo rótulo que supabase/seed.sql grava nas disciplinas: se
       // divergirem, o app acha que a turma virou o semestre e pede para
       // arquivar dados recém-criados.

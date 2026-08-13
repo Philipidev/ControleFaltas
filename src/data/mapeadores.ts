@@ -47,20 +47,14 @@ export function paraFalta(linha: LinhaFalta): Falta {
   }
 }
 
-/** Falta com os campos que só a tela de justificativa (§7.1) usa. */
+/** Falta com o que a tela de faltas mostra além do cálculo. */
 export interface FaltaDetalhada extends Falta {
-  readonly prazoJustificativa: string
-  readonly dataEnvioAtestado: string | null
-  readonly anexoPath: string | null
   readonly observacao: string | null
 }
 
 export function paraFaltaDetalhada(linha: LinhaFalta): FaltaDetalhada {
   return {
     ...paraFalta(linha),
-    prazoJustificativa: linha.prazo_justificativa,
-    dataEnvioAtestado: linha.data_envio_atestado,
-    anexoPath: linha.anexo_path,
     observacao: linha.observacao,
   }
 }

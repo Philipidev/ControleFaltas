@@ -28,16 +28,8 @@ export interface AulaParaExportar {
   readonly horaInicio: string | null
 }
 
-export interface PrazoParaExportar {
-  readonly faltaId: string
-  readonly disciplina: string
-  /** 'YYYY-MM-DD' — último dia para entregar o atestado. */
-  readonly prazo: string
-}
-
 export interface OpcoesIcs {
   readonly aulas: readonly AulaParaExportar[]
-  readonly prazos?: readonly PrazoParaExportar[]
   /** 'YYYY-MM-DD' — primeira data possível para as aulas. */
   readonly inicio: string
   /** 'YYYY-MM-DD' — fim do semestre; vira o UNTIL da recorrência. */
@@ -184,27 +176,6 @@ export function gerarIcs(opcoes: OpcoesIcs): string {
       `DTEND:${dataCompacta(primeira)}T${somarHoras(hora, aula.horas)}`,
       `RRULE:FREQ=WEEKLY;BYDAY=${DIAS_ICS[aula.dia]};UNTIL=${ate}`,
       dobrarLinha(`SUMMARY:${escaparTexto(aula.disciplina)}`),
-      'END:VEVENT',
-    )
-  }
-
-  for (const prazo of opcoes.prazos ?? []) {
-    // Dia inteiro: o prazo é uma data, não um instante. DTEND é exclusivo em
-    // VALUE=DATE, então precisa ser o dia seguinte — sem isso o evento não
-    // aparece no dia do vencimento em parte dos calendários.
-    const fim = new Date(`${prazo.prazo}T12:00:00`)
-    fim.setDate(fim.getDate() + 1)
-    const fimIso = `${String(fim.getFullYear())}${String(fim.getMonth() + 1).padStart(2, '0')}${String(
-      fim.getDate(),
-    ).padStart(2, '0')}`
-
-    linhas.push(
-      'BEGIN:VEVENT',
-      `UID:prazo-${prazo.faltaId}@${dominio}`,
-      `DTSTAMP:${carimbo}`,
-      `DTSTART;VALUE=DATE:${dataCompacta(prazo.prazo)}`,
-      `DTEND;VALUE=DATE:${fimIso}`,
-      dobrarLinha(`SUMMARY:${escaparTexto(`Último dia p/ atestado — ${prazo.disciplina}`)}`),
       'END:VEVENT',
     )
   }

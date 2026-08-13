@@ -42,25 +42,6 @@ describe('resolverRegra — a cascata', () => {
     expect(resolverRegra({ disciplina: { limiteReprovacao: 0.2 } }).limiteTravado).toBe(true)
   })
 
-  it('atestado desconta: mesma cascata do limite', () => {
-    expect(resolverRegra({}).regras.justificadaConta).toBe(false)
-    const r = resolverRegra({
-      comunidade: { justificadaConta: true },
-      usuario: { justificadaConta: false },
-    })
-    expect(r.regras.justificadaConta).toBe(true)
-    expect(r.origem.justificadaConta).toBe('comunidade')
-  })
-
-  it('false do nível de cima não é "não decidi" — é uma decisão', () => {
-    const r = resolverRegra({
-      comunidade: { justificadaConta: false },
-      usuario: { justificadaConta: true },
-    })
-    expect(r.regras.justificadaConta).toBe(false)
-    expect(r.origem.justificadaConta).toBe('comunidade')
-  })
-
   it('o streak é sempre seu — nenhuma turma decide', () => {
     const r = resolverRegra({
       comunidade: { justificadaQuebraStreak: true },

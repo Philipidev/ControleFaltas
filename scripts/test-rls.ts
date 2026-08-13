@@ -252,28 +252,20 @@ async function main(): Promise<void> {
       // e o teste passaria a medir a constraint em vez da regra da §3.
       horas_perdidas: 99,
     })
-    .select('horas_perdidas, prazo_justificativa')
+    .select('horas_perdidas')
     .single()
 
   if (erroInsert !== null) {
     checar('§3 — o banco ignora as horas enviadas e usa as da grade', false, erroInsert.message)
-    checar('§8 — prazo_justificativa é calculado como data + 7', false, 'o insert falhou')
   } else {
     checar(
       '§3 — o banco ignora as horas enviadas e usa as da grade (4h na segunda)',
       inserida.horas_perdidas === 4,
       `veio ${String(inserida.horas_perdidas)}`,
     )
-
-    const prazoEsperado = somarDias(isoSegunda, 7)
-    checar(
-      '§8 — prazo_justificativa é calculado como data + 7',
-      inserida.prazo_justificativa === prazoEsperado,
-      `veio ${inserida.prazo_justificativa}, esperava ${prazoEsperado}`,
-    )
   }
 
-  // §7.1 — justificar uma falta antiga tem de ser recusado.
+  // §7.1 — a marcação não tem prazo: uma falta velha aceita atestado.
   const { data: antiga } = await marina.cliente
     .from('faltas')
     .select('id, data, justificada')
@@ -291,10 +283,12 @@ async function main(): Promise<void> {
       .update({ justificada: true })
       .eq('id', antiga.id)
 
+    await marina.cliente.from('faltas').update({ justificada: false }).eq('id', antiga.id)
+
     checar(
-      `§7.1 — atestado fora do prazo é bloqueado (falta de ${String(diasAtras)} dias atrás)`,
-      diasAtras > 7 ? erroPrazo !== null : erroPrazo === null,
-      erroPrazo?.message ?? 'o update passou',
+      `§7.1 — marcar atestado não tem prazo (falta de ${String(diasAtras)} dias atrás)`,
+      erroPrazo === null,
+      erroPrazo?.message ?? '',
     )
   }
 
@@ -569,99 +563,65 @@ async function testarComunidades(marina: Sessao, bia: Sessao): Promise<void> {
       `o limite ficou ${String(regraDaDona?.limite_reprovacao)}`,
     )
 
-    // ---- 9. o ranking ordena todos sob a MESMA regra -----------------------
-    // O bug que a 0013 fechou: get_group_ranking somava as horas de cada
-    // membro usando o `justificada_conta` DELE. Duas pessoas com o mesmo
-    // histórico trocavam de lugar porque uma tinha mexido numa chave que só
-    // ela via — e a função devolve apenas a colocação, então não havia como
-    // perceber.
-    const { data: umaJustificada } = await admin
+    // ---- 9. o atestado é anotação: não muda soma nem colocação ------------
+    // A 0013 tinha fechado um bug em que get_group_ranking somava as horas de
+    // cada membro sob o `justificada_conta` DELE. A 0015 foi além e apagou a
+    // chave: marcar uma falta com atestado não tira hora nenhuma da conta, de
+    // ninguém. O que este ataque prova é justamente que não há mais alavanca —
+    // se alguém reintroduzir o desconto, marcar atestado passaria a melhorar a
+    // própria colocação, e a função devolve só a posição, então não haveria
+    // como perceber de fora.
+    const { data: umaFalta } = await admin
       .from('faltas')
-      .select('usuario_id, disciplina_id')
-      .eq('justificada', true)
+      .select('id, usuario_id, disciplina_id, justificada')
+      .eq('justificada', false)
       .limit(1)
       .single()
 
-    if (umaJustificada === null) {
-      checar('há falta justificada para testar o ranking', false, 'rode npm run db:seed antes')
+    if (umaFalta === null) {
+      checar('há falta para testar o ranking', false, 'rode npm run db:seed antes')
     } else {
       const TURMA_DO_SEED = '9a0b0000-0000-4000-8000-00000000000a'
       const posicoes = async (): Promise<string> => {
         const { data } = await marina.cliente.rpc('get_group_ranking', {
           p_grupo_id: TURMA_DO_SEED,
-          p_disciplina_id: umaJustificada.disciplina_id,
+          p_disciplina_id: umaFalta.disciplina_id,
         })
         return (data ?? []).map((i) => `${i.usuario_id}:${String(i.posicao)}`).join('|')
       }
-
-      const antes = await posicoes()
 
       const somaHoras = async (): Promise<number> => {
         const { data } = await admin
           .from('v_disciplina_status')
           .select('total_faltado')
-          .eq('usuario_id', umaJustificada.usuario_id)
-          .eq('disciplina_id', umaJustificada.disciplina_id)
+          .eq('usuario_id', umaFalta.usuario_id)
+          .eq('disciplina_id', umaFalta.disciplina_id)
           .single()
         return data?.total_faltado ?? 0
       }
 
-      const TURMA_DO_SEED2 = '9a0b0000-0000-4000-8000-00000000000a'
-      const { data: regraOriginal } = await admin
-        .from('grupos')
-        .select('justificada_conta')
-        .eq('id', TURMA_DO_SEED2)
-        .single()
-
-      const mexerNaChavePessoal = async (valor: boolean): Promise<void> => {
-        await admin
-          .from('configuracoes')
-          .update({ justificada_conta: valor })
-          .eq('usuario_id', umaJustificada.usuario_id)
-      }
-      const regraDaTurma = async (valor: boolean | null): Promise<void> => {
-        await admin
-          .from('grupos')
-          .update({ justificada_conta: valor })
-          .eq('id', TURMA_DO_SEED2)
+      const marcarAtestado = async (valor: boolean): Promise<void> => {
+        await admin.from('faltas').update({ justificada: valor }).eq('id', umaFalta.id)
       }
 
-      // ---- com a turma decidindo, a chave pessoal não decide nada ---------
-      await regraDaTurma(false)
-      const comTurmaAntes = await somaHoras()
-      await mexerNaChavePessoal(true)
-      const comTurmaDepois = await somaHoras()
-      const rankingComTurma = await posicoes()
-      await mexerNaChavePessoal(false)
+      const horasAntes = await somaHoras()
+      const rankingAntes = await posicoes()
 
-      checar(
-        'com a turma decidindo, a chave pessoal não muda nem o próprio cálculo',
-        comTurmaAntes === comTurmaDepois,
-        `${String(comTurmaAntes)}h → ${String(comTurmaDepois)}h`,
-      )
-
-      // ---- sem a turma decidindo, o nível pessoal volta a valer -----------
-      await regraDaTurma(null)
-      const semTurmaAntes = await somaHoras()
-      const rankingSemTurma = await posicoes()
-      await mexerNaChavePessoal(true)
-      const semTurmaDepois = await somaHoras()
+      await marcarAtestado(true)
+      const horasDepois = await somaHoras()
       const rankingDepois = await posicoes()
 
-      await mexerNaChavePessoal(false)
-      await regraDaTurma(regraOriginal?.justificada_conta ?? null)
+      await marcarAtestado(false)
 
-      // Sem isto o teste passaria à toa: se a chave não mudasse nada para o
-      // próprio dono, também não mudaria o ranking.
       checar(
-        'sem a turma decidindo, a chave pessoal muda o próprio cálculo',
-        semTurmaDepois > semTurmaAntes,
-        `${String(semTurmaAntes)}h → ${String(semTurmaDepois)}h`,
+        'marcar com atestado não tira horas da conta',
+        horasAntes === horasDepois,
+        `${String(horasAntes)}h → ${String(horasDepois)}h`,
       )
       checar(
-        'mas NUNCA muda o ranking da turma',
-        antes === rankingComTurma && rankingSemTurma === rankingDepois && antes !== '',
-        `"${antes}" | "${rankingComTurma}" | "${rankingSemTurma}" | "${rankingDepois}"`,
+        'marcar com atestado não muda o ranking da turma',
+        rankingAntes === rankingDepois && rankingAntes !== '',
+        `"${rankingAntes}" | "${rankingDepois}"`,
       )
     }
 

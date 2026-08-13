@@ -42,7 +42,6 @@ export interface RegraDoNivel {
   readonly limiteReprovacao?: number | null
   readonly faixaVerde?: number | null
   readonly faixaAmarela?: number | null
-  readonly justificadaConta?: boolean | null
   readonly justificadaQuebraStreak?: boolean | null
 }
 
@@ -56,7 +55,6 @@ export interface OrigemDaRegra {
   readonly limiteReprovacao: NivelDaRegra
   readonly faixaVerde: NivelDaRegra
   readonly faixaAmarela: NivelDaRegra
-  readonly justificadaConta: NivelDaRegra
 }
 
 export interface RegraResolvida {
@@ -110,15 +108,6 @@ export function resolverRegra(niveis: Niveis): RegraResolvida {
     LIMITES_PADRAO.limiteReprovacao,
   )
 
-  const [origemJustificada, justificadaConta] = primeiro(
-    [
-      ['disciplina', disciplina?.justificadaConta],
-      ['comunidade', comunidade?.justificadaConta],
-      ['usuario', usuario?.justificadaConta],
-    ],
-    REGRAS_PADRAO.justificadaConta,
-  )
-
   const [origemVerde, verdeBruto] = alerta(
     usuario?.faixaVerde,
     comunidade?.faixaVerde,
@@ -145,7 +134,6 @@ export function resolverRegra(niveis: Niveis): RegraResolvida {
   return {
     limites: { limiteReprovacao, faixaVerde, faixaAmarela },
     regras: {
-      justificadaConta,
       // O streak é seu: quantos dias VOCÊ está sem faltar. Nenhuma turma
       // decide se o seu atestado quebra a sua sequência.
       justificadaQuebraStreak:
@@ -155,7 +143,6 @@ export function resolverRegra(niveis: Niveis): RegraResolvida {
       limiteReprovacao: origemLimite,
       faixaVerde: origemVerde,
       faixaAmarela: origemAmarela,
-      justificadaConta: origemJustificada,
     },
     limiteTravado: origemLimite === 'disciplina' || origemLimite === 'comunidade',
     tetoDoAlerta: {

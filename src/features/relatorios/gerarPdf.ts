@@ -76,7 +76,7 @@ export function gerarRelatorioPdf({
     // A coluna "Limite" existe porque ele deixou de ser um número só: a turma
     // define o dela e uma disciplina de estágio pode exigir mais. Sem a
     // coluna, "12% de faltas" não diz se está perto ou longe do teto.
-    head: [['Disciplina', 'Carga', 'Faltas', 'Justif.', '% faltas', 'Limite', 'Situação']],
+    head: [['Disciplina', 'Carga', 'Faltas', 'Atestado', '% faltas', 'Limite', 'Situação']],
     body: cartoes.map((c) => [
       c.disciplina.nome,
       formatarHoras(c.disciplina.cargaHorariaTotal),

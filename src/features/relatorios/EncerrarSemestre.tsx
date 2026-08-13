@@ -124,7 +124,7 @@ export function EncerrarSemestre() {
           </p>
           <p className="mt-1 text-xs font-semibold text-vermelho">
             O resumo por disciplina fica salvo no histórico acima, mas as faltas individuais
-            (datas e atestados) não voltam. Baixe o backup em Relatórios antes, se quiser
+            (datas e marcações de atestado) não voltam. Baixe o backup em Relatórios antes, se quiser
             guardá-las.
           </p>
 

@@ -6,8 +6,6 @@ import { CalendarioMes } from '@/components/CalendarioMes.tsx'
 import { Cartao } from '@/components/ui/Cartao.tsx'
 import { useFaltas } from '@/data/queries.ts'
 import { formatarBR, hojeISO, primeiroDiaDoMes } from '@/domain/data.ts'
-import { faltasComPrazoCorrendo } from '@/domain/justificativa.ts'
-import type { PrazoParaExportar } from '@/domain/ics.ts'
 import { formatarHoras } from '@/domain/risco.ts'
 import { useUsuarioId } from '@/features/auth/contexto.ts'
 import { usePainel } from '@/features/dashboard/usePainel.ts'
@@ -47,18 +45,6 @@ export function TelaCalendario() {
   }
 
   const doDia = diaEscolhido === null ? [] : lista.filter((f) => f.data === diaEscolhido)
-
-  const nomePorId = new Map(disciplinas.map((d) => [d.id, d.nome]))
-  // Só as faltas ainda dentro dos 7 dias entram no .ics: um prazo vencido no
-  // calendário do celular seria um lembrete para algo que não dá mais para
-  // fazer. O 7 aqui é o limite inteiro da janela, não o aviso de urgência.
-  const prazos: PrazoParaExportar[] = faltasComPrazoCorrendo(lista, hoje, 7).map(
-    ({ falta, situacao }) => ({
-      faltaId: falta.id,
-      disciplina: nomePorId.get(falta.disciplinaId) ?? 'Disciplina',
-      prazo: situacao.prazo,
-    }),
-  )
 
   return (
     <>
@@ -109,7 +95,7 @@ export function TelaCalendario() {
           </ul>
           <p className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-texto-fraco">
             <span aria-hidden="true" className="size-2.5 rounded-full bg-texto-fraco opacity-45" />
-            Ponto esmaecido = falta justificada com atestado
+            Ponto esmaecido = falta com atestado
           </p>
         </Cartao>
       </main>
@@ -171,7 +157,6 @@ export function TelaCalendario() {
       {exportando && (
         <FolhaExportarCalendario
           disciplinas={disciplinas}
-          prazos={prazos}
           aoFechar={() => {
             setExportando(false)
           }}

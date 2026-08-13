@@ -1,82 +1,39 @@
-import { diferencaEmDias, formatarBR, somarDias } from './data.ts'
-
 /**
- * §7.1 — Faltas justificadas (atestado).
+ * §7.1 — a marcação de atestado.
  *
- * "A faculdade só aceita atestado dentro de 7 dias a partir da data da falta."
+ * Sobrou uma função, e ela existe porque as duas pontas não têm o mesmo
+ * formato: um atestado cobre um **período**, e uma falta é de um **dia**.
+ * Ficar doente de segunda a sexta são oito faltas em quatro disciplinas, e
+ * marcar uma a uma seria o app cobrando pelo que ele já sabe.
  *
- * Este módulo é o espelho do trigger trg_prazo_atestado (migration 0002): a
- * UI usa daqui para desabilitar o botão e mostrar o prazo restante, e o banco
- * recusa de verdade. Os dois precisam concordar — se um dia o prazo mudar,
- * mude nos dois lugares.
+ * O que este módulo NÃO faz, e não deve voltar a fazer:
+ *
+ * - **Não há prazo.** Havia `PRAZO_ATESTADO_DIAS = 7` e uma contagem
+ *   regressiva por falta, espelhando o trigger `trg_prazo_atestado`. A janela
+ *   de 7 dias é da secretaria; um app de controle pessoal que trava o registro
+ *   só impede a pessoa de anotar o que aconteceu de verdade.
+ * - **Não há desconto.** A marcação não entra em `horasQueContam` — ver o
+ *   comentário lá, em risco.ts. Atestado é registro de que o papel existe.
  */
 
-export const PRAZO_ATESTADO_DIAS = 7
-
-export interface SituacaoAtestado {
-  readonly dataFalta: string
-  /** data da falta + 7 dias — o mesmo valor da coluna prazo_justificativa. */
-  readonly prazo: string
-  /** Dias inteiros até o fim do prazo. Negativo quando já venceu. */
-  readonly diasRestantes: number
-  readonly podeJustificar: boolean
-  readonly expirado: boolean
-  /** Texto pronto para a UI: "você tem até dia X para justificar". */
-  readonly mensagem: string
-  /** Prazo apertado (hoje ou amanhã) — merece destaque visual. */
-  readonly urgente: boolean
-}
-
-export function calcularPrazo(dataFalta: string): string {
-  return somarDias(dataFalta, PRAZO_ATESTADO_DIAS)
-}
-
-export function situacaoAtestado(dataFalta: string, hoje: string): SituacaoAtestado {
-  const prazo = calcularPrazo(dataFalta)
-  const diasRestantes = diferencaEmDias(hoje, prazo)
-  const expirado = diasRestantes < 0
-
-  return {
-    dataFalta,
-    prazo,
-    diasRestantes,
-    podeJustificar: !expirado,
-    expirado,
-    mensagem: montarMensagem(prazo, diasRestantes),
-    urgente: !expirado && diasRestantes <= 1,
-  }
-}
-
-function montarMensagem(prazo: string, diasRestantes: number): string {
-  if (diasRestantes < 0) {
-    const vencidoHa = -diasRestantes
-    return `Prazo do atestado expirado — venceu em ${formatarBR(prazo)} (${
-      vencidoHa === 1 ? 'ontem' : `há ${String(vencidoHa)} dias`
-    }). Essa falta não pode mais ser justificada.`
-  }
-  if (diasRestantes === 0) {
-    return `Hoje é o último dia para justificar esta falta.`
-  }
-  if (diasRestantes === 1) {
-    return `Você tem até amanhã, ${formatarBR(prazo)}, para justificar esta falta.`
-  }
-  return `Você tem até ${formatarBR(prazo)} para justificar esta falta (${String(
-    diasRestantes,
-  )} dias).`
-}
-
 /**
- * Faltas ainda justificáveis, para o app poder cutucar o usuário antes de o
- * prazo vencer (§6, tipo de notificação 'prazo_atestado').
+ * As faltas que uma marcação por intervalo alcança.
+ *
+ * Só as **já registradas**: o app não guarda o período do atestado em lugar
+ * nenhum, então uma falta lançada depois desta chamada não entra sozinha. O
+ * número existe justamente para essa limitação ficar visível na tela antes de
+ * confirmar, em vez de virar surpresa — daí o rótulo falar em "faltas já
+ * registradas" e não em "até o dia tal".
+ *
+ * Já marcadas ficam de fora: a contagem promete quantas vão MUDAR.
  */
-export function faltasComPrazoCorrendo<T extends { data: string; justificada: boolean }>(
+export function faltasCobertasPorAtestado<T extends { data: string; justificada: boolean }>(
   faltas: readonly T[],
-  hoje: string,
-  avisarComDiasOuMenos = 2,
-): { falta: T; situacao: SituacaoAtestado }[] {
-  return faltas
-    .filter((f) => !f.justificada)
-    .map((falta) => ({ falta, situacao: situacaoAtestado(falta.data, hoje) }))
-    .filter(({ situacao }) => situacao.podeJustificar && situacao.diasRestantes <= avisarComDiasOuMenos)
-    .sort((a, b) => a.situacao.diasRestantes - b.situacao.diasRestantes)
+  de: string,
+  ate: string,
+): T[] {
+  // Um intervalo que não passa do próprio dia não é intervalo: a falta que
+  // está sendo criada já leva a marcação pelo insert.
+  if (ate <= de) return []
+  return faltas.filter((f) => !f.justificada && f.data >= de && f.data <= ate)
 }

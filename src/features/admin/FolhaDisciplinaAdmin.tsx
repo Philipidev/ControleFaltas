@@ -40,7 +40,6 @@ export function FolhaDisciplinaAdmin({
   const [erro, setErro] = useState<string | null>(null)
   const [regra, setRegra] = useState<RegraEditavel>({
     limiteReprovacao: linha?.limite_reprovacao ?? null,
-    justificadaConta: linha?.justificada_conta ?? null,
   })
   const [aplicadas, setAplicadas] = useState<number | null>(null)
 
@@ -86,10 +85,7 @@ export function FolhaDisciplinaAdmin({
         cargaHorariaTotal: cargaNumero,
         cor,
         grade: grade.map((g) => ({ ...g, horaInicio: g.horaInicio ?? null })),
-        regra: {
-          limite_reprovacao: regra.limiteReprovacao,
-          justificada_conta: regra.justificadaConta,
-        },
+        regra: { limite_reprovacao: regra.limiteReprovacao },
       })
       aoFechar()
     } catch (e) {
@@ -199,7 +195,6 @@ export function FolhaDisciplinaAdmin({
           aoMudar={setRegra}
           herdado={{
             limite: LIMITES_PADRAO.limiteReprovacao,
-            justificadaConta: false,
             origem: 'que vem da turma de quem cursa, ou do ajuste pessoal dela',
           }}
         />
@@ -213,10 +208,7 @@ export function FolhaDisciplinaAdmin({
           aoAplicar={() => {
             emLote.mutate(
               {
-                regra: {
-                  limite_reprovacao: regra.limiteReprovacao,
-                  justificada_conta: regra.justificadaConta,
-                },
+                regra: { limite_reprovacao: regra.limiteReprovacao },
                 escopo: {
                   tipo: 'catalogo',
                   curso: curso.trim(),

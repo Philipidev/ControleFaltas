@@ -140,17 +140,6 @@ describe('gerarIcs — estrutura do arquivo', () => {
     expect(ics).toContain('SUMMARY:Medicina\\, Família e Comunidade')
   })
 
-  it('prazo de atestado vira evento de dia inteiro com DTEND no dia seguinte', () => {
-    const ics = gerarIcs({
-      ...BASE,
-      aulas: [],
-      prazos: [{ faltaId: 'f1', disciplina: 'Bioquímica', prazo: '2026-08-18' }],
-    })
-    expect(ics).toContain('DTSTART;VALUE=DATE:20260818')
-    // DTEND é exclusivo: sem o +1 o evento não aparece no dia do vencimento.
-    expect(ics).toContain('DTEND;VALUE=DATE:20260819')
-  })
-
   it('um evento por aula da grade', () => {
     const ics = gerarIcs({
       ...BASE,
