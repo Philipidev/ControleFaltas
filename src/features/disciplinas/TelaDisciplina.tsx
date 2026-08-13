@@ -194,8 +194,14 @@ export function TelaDisciplina() {
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
+                    {/*
+                      Acento, e não verde: verde é a cor do "Tranquilo" do
+                      semáforo, e uma falta com atestado conta igual às outras.
+                      Pintá-la de verde ao lado das horas diria que aquela ali
+                      não pesa — exatamente o que a marcação não faz.
+                    */}
                     {f.justificada && (
-                      <span className="rounded-pill bg-verde-suave px-2 py-0.5 text-[0.6875rem] font-bold text-verde">
+                      <span className="rounded-pill bg-acento-suave px-2 py-0.5 text-[0.6875rem] font-bold text-acento">
                         atestado
                       </span>
                     )}
