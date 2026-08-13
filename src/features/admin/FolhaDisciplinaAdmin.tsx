@@ -1,6 +1,7 @@
 import { Loader2, X } from 'lucide-react'
 import { useState } from 'react'
 
+import { EditorDeGrade, type AulaEditavel } from '@/components/EditorDeGrade.tsx'
 import { AplicarEmLote, EditorDeRegra, type RegraEditavel } from '@/components/EditorDeRegra.tsx'
 import { Botao } from '@/components/ui/Botao.tsx'
 import { CORES_MATERIA } from '@/data/cores.ts'
@@ -11,8 +12,8 @@ import {
   useTodasDisciplinas,
 } from '@/data/queries.ts'
 import { semestreAtual } from '@/domain/data.ts'
-import { formatarHoras } from '@/domain/risco.ts'
-import { DIAS_SEMANA, LIMITES_PADRAO, NOME_DIA_CURTO, type DiaSemana } from '@/domain/tipos.ts'
+import { formatarHoraMinuto, formatarHoras } from '@/domain/risco.ts'
+import { LIMITES_PADRAO, type DiaSemana } from '@/domain/tipos.ts'
 import { useUsuarioId } from '@/features/auth/contexto.ts'
 import { cn } from '@/lib/cn.ts'
 
@@ -43,31 +44,16 @@ export function FolhaDisciplinaAdmin({
   })
   const [aplicadas, setAplicadas] = useState<number | null>(null)
 
-  const [horasPorDia, setHorasPorDia] = useState<Partial<Record<DiaSemana, number>>>(() => {
-    const inicial: Partial<Record<DiaSemana, number>> = {}
-    for (const g of linha?.disciplina_grade ?? []) {
-      inicial[g.dia_semana as DiaSemana] = g.horas
-    }
-    return inicial
-  })
-
   // O horário não entra em cálculo nenhum de falta — serve para a exportação
   // ao calendário do celular marcar a aula na hora certa em vez de chutar.
-  const [horaPorDia, setHoraPorDia] = useState<Partial<Record<DiaSemana, string>>>(() => {
-    const inicial: Partial<Record<DiaSemana, string>> = {}
-    for (const g of linha?.disciplina_grade ?? []) {
+  const [grade, setGrade] = useState<readonly AulaEditavel[]>(() =>
+    (linha?.disciplina_grade ?? []).map((g) => ({
+      dia: g.dia_semana as DiaSemana,
+      horas: g.horas,
       // O banco devolve 'HH:MM:SS'; o input[type=time] quer 'HH:MM'.
-      if (g.hora_inicio !== null) inicial[g.dia_semana as DiaSemana] = g.hora_inicio.slice(0, 5)
-    }
-    return inicial
-  })
-
-  const grade = DIAS_SEMANA.flatMap((dia) => {
-    const horas = horasPorDia[dia]
-    if (horas === undefined || horas <= 0) return []
-    const hora = horaPorDia[dia]
-    return [{ dia, horas, horaInicio: hora === undefined || hora === '' ? null : hora }]
-  })
+      horaInicio: g.hora_inicio === null ? null : g.hora_inicio.slice(0, 5),
+    })),
+  )
 
   /*
    * O alcance do lote, recontado enquanto se digita curso/período/semestre:
@@ -99,7 +85,7 @@ export function FolhaDisciplinaAdmin({
         semestre: semestre.trim(),
         cargaHorariaTotal: cargaNumero,
         cor,
-        grade,
+        grade: grade.map((g) => ({ ...g, horaInicio: g.horaInicio ?? null })),
         regra: {
           limite_reprovacao: regra.limiteReprovacao,
           justificada_conta: regra.justificadaConta,
@@ -167,73 +153,15 @@ export function FolhaDisciplinaAdmin({
           <fieldset>
             <legend className="mb-1.5 text-sm font-extrabold text-texto">Grade semanal</legend>
             <p className="mb-2.5 text-xs font-semibold text-texto-fraco">
-              As horas de cada dia. É daqui que sai o desconto automático da falta.
+              Toque nos dias e informe quanto dura a aula. É daqui que sai o desconto
+              automático da falta — e o horário de início alimenta a exportação para o
+              calendário do celular.
             </p>
-            <div className="grid grid-cols-7 gap-1.5">
-              {DIAS_SEMANA.map((dia) => {
-                const horas = horasPorDia[dia] ?? 0
-                return (
-                  <div key={dia} className="flex flex-col items-center gap-1">
-                    <span className="text-[0.625rem] font-bold text-texto-fraco uppercase">
-                      {NOME_DIA_CURTO[dia]}
-                    </span>
-                    <input
-                      type="number"
-                      min={0}
-                      max={12}
-                      step={0.5}
-                      value={horas === 0 ? '' : horas}
-                      aria-label={`Horas na ${NOME_DIA_CURTO[dia]}`}
-                      onChange={(e) => {
-                        const v = Number(e.target.value)
-                        setHorasPorDia((atual) => ({
-                          ...atual,
-                          [dia]: Number.isNaN(v) ? 0 : v,
-                        }))
-                      }}
-                      placeholder="—"
-                      className={cn(
-                        'tabular h-11 w-full rounded-interno border-2 bg-superficie-2 text-center text-sm font-extrabold text-texto outline-none focus:border-acento',
-                        horas > 0 ? 'border-acento' : 'border-borda',
-                      )}
-                    />
-                  </div>
-                )
-              })}
-            </div>
-            {/* Só os dias com aula. Um campo de hora em cada uma das sete
-                colunas acima não caberia num celular, e seis deles ficariam
-                vazios de qualquer forma. */}
-            {grade.length > 0 && (
-              <div className="mt-3">
-                <p className="mb-2 text-xs font-semibold text-texto-fraco">
-                  Horário de início — opcional, usado só para exportar as aulas ao calendário do
-                  celular.
-                </p>
-                <div className="space-y-1.5">
-                  {grade.map((g) => (
-                    <div key={g.dia} className="flex items-center gap-3">
-                      <span className="w-20 shrink-0 text-xs font-bold text-texto-suave uppercase">
-                        {NOME_DIA_CURTO[g.dia]} · {formatarHoras(g.horas)}
-                      </span>
-                      <input
-                        type="time"
-                        value={horaPorDia[g.dia] ?? ''}
-                        aria-label={`Horário na ${NOME_DIA_CURTO[g.dia]}`}
-                        onChange={(e) => {
-                          setHoraPorDia((atual) => ({ ...atual, [g.dia]: e.target.value }))
-                        }}
-                        className="h-10 flex-1 rounded-interno border-2 border-borda bg-superficie-2 px-3 text-sm font-semibold text-texto outline-none focus:border-acento"
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            <EditorDeGrade valor={grade} aoMudar={setGrade} comHorario />
 
             {horasPorSemana > 0 && cargaNumero > 0 && (
               <p className="mt-2 text-xs font-semibold text-texto-suave">
-                {formatarHoras(horasPorSemana)} por semana ·{' '}
+                {formatarHoraMinuto(horasPorSemana)} por semana ·{' '}
                 {Math.round(cargaNumero / horasPorSemana)} semanas ·{' '}
                 <span className="text-vermelho">
                   {formatarHoras(cargaNumero * 0.25)} até reprovar

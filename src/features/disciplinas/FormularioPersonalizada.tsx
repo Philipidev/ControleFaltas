@@ -1,6 +1,7 @@
 import { Loader2 } from 'lucide-react'
 import { useState } from 'react'
 
+import { EditorDeGrade, type AulaEditavel } from '@/components/EditorDeGrade.tsx'
 import { AplicarEmLote, EditorDeRegra, type RegraEditavel } from '@/components/EditorDeRegra.tsx'
 import { Botao } from '@/components/ui/Botao.tsx'
 import { CORES_MATERIA } from '@/data/cores.ts'
@@ -11,8 +12,6 @@ import {
 } from '@/data/queries.ts'
 import { useContextoDaRegra } from '@/data/regra.ts'
 import { FRASE_NIVEL } from '@/domain/limites.ts'
-import { formatarHoras } from '@/domain/risco.ts'
-import { DIAS_SEMANA, NOME_DIA_CURTO, type DiaSemana } from '@/domain/tipos.ts'
 import { cn } from '@/lib/cn.ts'
 
 /**
@@ -49,13 +48,8 @@ export function FormularioPersonalizada({
   const [aplicadas, setAplicadas] = useState<number | null>(null)
   const [carga, setCarga] = useState('60')
   const [cor, setCor] = useState<string>(CORES_MATERIA[0])
-  const [horasPorDia, setHorasPorDia] = useState<Partial<Record<DiaSemana, number>>>({})
+  const [grade, setGrade] = useState<readonly AulaEditavel[]>([])
   const [erro, setErro] = useState<string | null>(null)
-
-  const grade = DIAS_SEMANA.flatMap((dia) => {
-    const horas = horasPorDia[dia]
-    return horas !== undefined && horas > 0 ? [{ dia, horas }] : []
-  })
 
   // O lote só alcança o que é seu: o catálogo pertence à turma, e o RLS
   // recusaria em silêncio.
@@ -63,8 +57,13 @@ export function FormularioPersonalizada({
   const outrasPessoais = matriculadas.filter((m) => m.personalizada)
   const temDoCatalogo = matriculadas.some((m) => !m.personalizada)
 
-  const horasPorSemana = grade.reduce((s, g) => s + g.horas, 0)
   const cargaNumero = Number(carga)
+  const horasPorSemana = grade.reduce((s, g) => s + g.horas, 0)
+  const semanas = horasPorSemana > 0 ? Math.round(cargaNumero / horasPorSemana) : 0
+  // Um semestre letivo tem ~19 semanas. Muito fora disso quase sempre é
+  // carga e grade em unidades diferentes — hora-aula de 50min num lado,
+  // hora de relógio no outro —, e o erro só apareceria em novembro.
+  const semanasEstranhas = semanas > 0 && (semanas < 10 || semanas > 30)
   const valido = nome.trim().length > 0 && cargaNumero > 0 && grade.length > 0
 
   async function enviar() {
@@ -77,7 +76,7 @@ export function FormularioPersonalizada({
         curso,
         periodo,
         semestre,
-        grade,
+        grade: [...grade],
         regra: {
           limite_reprovacao: regra.limiteReprovacao,
           justificada_conta: regra.justificadaConta,
@@ -130,47 +129,22 @@ export function FormularioPersonalizada({
       </div>
 
       <fieldset>
-        <legend className="mb-1.5 text-sm font-extrabold text-texto">
-          Horas de aula em cada dia
-        </legend>
+        <legend className="mb-1.5 text-sm font-extrabold text-texto">Dias e horário das aulas</legend>
         <p className="mb-2.5 text-xs font-semibold text-texto-fraco">
-          É daqui que sai o desconto automático: faltar num dia de 4h custa 4h.
+          É daqui que sai o desconto automático: faltar num dia de 4h10 custa 4h10. Uma aula de
+          50 minutos é 0h50; cinco delas seguidas, 4h10.
         </p>
-        <div className="grid grid-cols-7 gap-1.5">
-          {DIAS_SEMANA.map((dia) => {
-            const horas = horasPorDia[dia] ?? 0
-            return (
-              <div key={dia} className="flex flex-col items-center gap-1">
-                <span className="text-[0.625rem] font-bold text-texto-fraco uppercase">
-                  {NOME_DIA_CURTO[dia]}
-                </span>
-                <input
-                  type="number"
-                  min={0}
-                  max={12}
-                  step={0.5}
-                  value={horas === 0 ? '' : horas}
-                  aria-label={`Horas na ${NOME_DIA_CURTO[dia]}`}
-                  onChange={(e) => {
-                    const v = Number(e.target.value)
-                    setHorasPorDia((atual) => ({ ...atual, [dia]: Number.isNaN(v) ? 0 : v }))
-                  }}
-                  placeholder="—"
-                  className={cn(
-                    'tabular h-11 w-full rounded-interno border-2 bg-superficie-2 text-center text-sm font-extrabold text-texto outline-none focus:border-acento',
-                    horas > 0 ? 'border-acento' : 'border-borda',
-                  )}
-                />
-              </div>
-            )
-          })}
-        </div>
-        {horasPorSemana > 0 && (
-          <p className="mt-2 text-xs font-semibold text-texto-suave">
-            {formatarHoras(horasPorSemana)} por semana ·{' '}
-            {cargaNumero > 0
-              ? `${String(Math.round(cargaNumero / horasPorSemana))} semanas de aula`
-              : ''}
+        <EditorDeGrade valor={grade} aoMudar={setGrade} />
+        {horasPorSemana > 0 && cargaNumero > 0 && (
+          <p
+            className={cn(
+              'mt-1.5 text-xs font-semibold',
+              semanasEstranhas ? 'text-vermelho' : 'text-texto-fraco',
+            )}
+          >
+            {semanasEstranhas
+              ? `Nessa conta, a disciplina levaria ${String(semanas)} semanas para cumprir a carga — um semestre tem umas 19. Confira a carga total e os dias.`
+              : `Dá ${String(semanas)} semanas de aula para cumprir a carga.`}
           </p>
         )}
       </fieldset>

@@ -148,6 +148,37 @@ export function formatarHoras(horas: number): string {
   return `${arredondado.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}h`
 }
 
+// ---------------------------------------------------------------------------
+// Horas decimais ↔ hora e minuto
+//
+// O banco guarda `horas` como decimal, e é assim que a §3 desconta. Mas
+// ninguém sabe de cabeça que uma aula de 4h10 são 4,17 — e quem digitasse
+// "4,1" perderia seis minutos por aula sem nunca ser avisado. O formulário
+// pergunta em hora e minuto; a conversão mora aqui, com teste.
+//
+// `numeric(4,2)` dá duas casas, o que arredonda 4h10 (4,1666…) para 4,17 —
+// 12 centésimos de minuto por aula. A volta é estável: 4,17 × 60 = 250,2, que
+// arredonda de novo para 250 minutos, exatamente 4h10.
+// ---------------------------------------------------------------------------
+
+export function emHoraMinuto(horas: number): { readonly h: number; readonly min: number } {
+  const totalMinutos = Math.max(0, Math.round(horas * 60))
+  return { h: Math.floor(totalMinutos / 60), min: totalMinutos % 60 }
+}
+
+export function deHoraMinuto(h: number, min: number): number {
+  const seguro = (v: number): number => (Number.isFinite(v) ? Math.max(0, v) : 0)
+  return Math.round((seguro(h) + seguro(min) / 60) * 100) / 100
+}
+
+/** 4.17 → "4h10"; 2 → "2h"; 0.83 → "50min" */
+export function formatarHoraMinuto(horas: number): string {
+  const { h, min } = emHoraMinuto(horas)
+  if (h === 0) return `${String(min)}min`
+  if (min === 0) return `${String(h)}h`
+  return `${String(h)}h${String(min).padStart(2, '0')}`
+}
+
 /** "8h / 70h" — o formato pedido literalmente na §7.2. */
 export function formatarProgressoHoras(faltado: number, total: number): string {
   return `${formatarHoras(faltado)} / ${formatarHoras(total)}`

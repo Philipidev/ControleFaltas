@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest'
 
 import {
   calcularRisco,
+  deHoraMinuto,
+  emHoraMinuto,
+  formatarHoraMinuto,
   formatarPercentual,
   formatarProgressoHoras,
   horasQueContam,
@@ -182,5 +185,51 @@ describe('horasQueContam', () => {
         justificadaQuebraStreak: false,
       }),
     ).toBe(6)
+  })
+})
+
+describe('hora e minuto — o formulário pergunta assim, o banco guarda decimal', () => {
+  it('converte a ida e a volta sem perder o minuto', () => {
+    // 4h10 é 4,1666… e o banco tem duas casas: 4,17. A volta precisa devolver
+    // os mesmos 4h10, senão a pessoa digita uma coisa e reabre outra.
+    for (const [h, min] of [
+      [4, 10],
+      [1, 20],
+      [2, 50],
+      [0, 50],
+      [3, 40],
+      [1, 45],
+      [2, 0],
+      [0, 5],
+    ] as const) {
+      const decimal = deHoraMinuto(h, min)
+      expect(emHoraMinuto(decimal)).toEqual({ h, min })
+    }
+  })
+
+  it('todos os 60 minutos de todas as horas até 8 voltam iguais', () => {
+    for (let h = 0; h <= 8; h += 1) {
+      for (let min = 0; min < 60; min += 1) {
+        expect(emHoraMinuto(deHoraMinuto(h, min))).toEqual({ h, min })
+      }
+    }
+  })
+
+  it('trata entrada inválida como zero em vez de NaN', () => {
+    expect(deHoraMinuto(Number.NaN, 30)).toBe(0.5)
+    expect(deHoraMinuto(-3, -10)).toBe(0)
+  })
+
+  it('formata para leitura', () => {
+    expect(formatarHoraMinuto(deHoraMinuto(4, 10))).toBe('4h10')
+    expect(formatarHoraMinuto(2)).toBe('2h')
+    expect(formatarHoraMinuto(deHoraMinuto(0, 50))).toBe('50min')
+    expect(formatarHoraMinuto(deHoraMinuto(1, 5))).toBe('1h05')
+  })
+
+  it('o decimal antigo continua legível', () => {
+    // Grades cadastradas antes disto usam 2,5 e 1,5 — precisam aparecer certo.
+    expect(formatarHoraMinuto(2.5)).toBe('2h30')
+    expect(formatarHoraMinuto(1.5)).toBe('1h30')
   })
 })
