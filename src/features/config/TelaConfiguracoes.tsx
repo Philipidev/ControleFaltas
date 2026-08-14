@@ -15,11 +15,13 @@ import { Cabecalho, Esqueleto } from '@/layout/pecas.tsx'
 import { useTema } from '@/theme/contexto.ts'
 
 /**
- * §4, §7.1, §7.5 — o que a spec marca como configurável.
+ * §4 e §7.5 — o que sobrou de configurável.
  *
  * As faixas do semáforo entram aqui porque a própria spec chama a tabela de
- * "sugestão de faixas"; a regra de faltas justificadas entra porque ela diz
- * que isso "depende da regra oficial do curso".
+ * "sugestão de faixas". A §7.1 tinha um interruptor nesta tela — "falta
+ * justificada desconta da carga" —, e ele foi embora com a 0015: o atestado
+ * não desconta, e não há o que ajustar. O que ficou da §7.5 é o streak, que é
+ * pessoal por definição.
  */
 export function TelaConfiguracoes() {
   const usuarioId = useUsuarioId()
@@ -34,7 +36,7 @@ export function TelaConfiguracoes() {
 
   const c = config.data
   const regra = contexto.geral
-  const daTurma = regra.limiteTravado || regra.origem.justificadaConta === 'comunidade'
+  const daTurma = regra.limiteTravado
   const nomeDaTurma = contexto.nomeDaTurma(null)
 
   return (
@@ -133,29 +135,16 @@ export function TelaConfiguracoes() {
               </div>
             </Cartao>
 
-            <Cartao className="divide-y divide-borda">
-              {regra.origem.justificadaConta === 'usuario' ||
-              regra.origem.justificadaConta === 'padrao' ? (
-                <Interruptor
-                  titulo="Falta justificada desconta da carga"
-                  descricao="Com isto desligado, o atestado tira a falta do cálculo de risco mas ela continua no contador de justificadas."
-                  ligado={c.justificada_conta}
-                  aoMudar={(v) => {
-                    salvar.mutate({ justificada_conta: v })
-                  }}
-                />
-              ) : (
-                <div className="p-5">
-                  <Definido
-                    rotulo="Falta justificada desconta da carga"
-                    texto={regra.regras.justificadaConta ? 'Desconta' : 'Não desconta'}
-                    origem={ROTULO_NIVEL[regra.origem.justificadaConta]}
-                  />
-                </div>
-              )}
+            {/*
+              Sobrou um interruptor sobre atestado, e é de propósito: ele fala
+              da SUA sequência, não do limite da turma. O outro que morava aqui
+              — "falta justificada desconta da carga" — decidia se o atestado
+              saía do cálculo de risco, e virou resposta fixa: não sai.
+            */}
+            <Cartao>
               <Interruptor
                 titulo="Atestado quebra o streak"
-                descricao="Se ligado, uma falta justificada também zera a sequência de presença. É a sua sequência: nenhuma turma decide por você."
+                descricao="Se ligado, uma falta com atestado também zera a sequência de presença. É a sua sequência: nenhuma turma decide por você."
                 ligado={c.justificada_quebra_streak}
                 aoMudar={(v) => {
                   salvar.mutate({ justificada_quebra_streak: v })

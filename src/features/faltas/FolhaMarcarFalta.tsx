@@ -1,11 +1,12 @@
-import { AlertTriangle, Check, Loader2, X } from 'lucide-react'
+import { AlertTriangle, Check, FileCheck2, Loader2, X } from 'lucide-react'
 import { motion } from 'motion/react'
 import { useMemo, useState } from 'react'
 
 import { Botao } from '@/components/ui/Botao.tsx'
-import { useMarcarFalta } from '@/data/queries.ts'
-import { diaDaSemana, formatarExtenso, hojeISO } from '@/domain/data.ts'
+import { useFaltas, useMarcarFalta } from '@/data/queries.ts'
+import { diaDaSemana, formatarBR, formatarExtenso, hojeISO } from '@/domain/data.ts'
 import { projetarAulas } from '@/domain/diasRestantes.ts'
+import { faltasCobertasPorAtestado } from '@/domain/justificativa.ts'
 import { formatarHoras, formatarPercentual, statusPara } from '@/domain/risco.ts'
 import { NOME_DIA } from '@/domain/tipos.ts'
 import type { CartaoPainel } from '@/features/dashboard/usePainel.ts'
@@ -19,6 +20,11 @@ import { cn } from '@/lib/cn.ts'
  * custar e para onde o semáforo vai. É também onde entra o aviso preventivo
  * da §6 — "se você faltar de novo nesta disciplina, vai passar de 25%" — no
  * único momento em que ele muda uma decisão.
+ *
+ * §7.1 — e é aqui que se pergunta pelo atestado, porque é aqui que a pessoa
+ * sabe a resposta. Antes a marcação vivia noutra tela, depois do registro. A
+ * resposta não muda o efeito mostrado acima: atestado é anotação, e a falta
+ * conta igual.
  */
 
 interface Props {
@@ -42,10 +48,25 @@ export function FolhaMarcarFalta({
     disciplinaInicial ?? cartoes[0]?.disciplina.id ?? '',
   )
   const [data, setData] = useState(dataInicial ?? hoje)
+  const [temAtestado, setTemAtestado] = useState(false)
+  const [cobreAte, setCobreAte] = useState('')
   const [erro, setErro] = useState<string | null>(null)
 
   const marcar = useMarcarFalta(usuarioId)
+  const faltas = useFaltas(usuarioId)
   const cartao = cartoes.find((c) => c.disciplina.id === disciplinaId)
+
+  /*
+   * Quantas faltas JÁ REGISTRADAS o intervalo alcança, em todas as
+   * disciplinas. O número aparece antes de confirmar porque marcar oito faltas
+   * de uma vez sem avisar seria surpresa — e porque ele expõe a limitação: o
+   * app não guarda o período do atestado, então o que ainda não foi registrado
+   * não entra, e é o número que deixa isso visível.
+   */
+  const alcancadas = useMemo(() => {
+    if (!temAtestado || cobreAte === '') return 0
+    return faltasCobertasPorAtestado(faltas.data ?? [], data, cobreAte).length
+  }, [faltas.data, temAtestado, cobreAte, data])
 
   const previsao = useMemo(() => {
     if (cartao === undefined) return null
@@ -87,7 +108,12 @@ export function FolhaMarcarFalta({
     if (cartao === undefined) return
     setErro(null)
     try {
-      await marcar.mutateAsync({ disciplinaId, data })
+      await marcar.mutateAsync({
+        disciplinaId,
+        data,
+        justificada: temAtestado,
+        cobreAte: temAtestado && cobreAte !== '' ? cobreAte : null,
+      })
       aoFechar()
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Não consegui registrar.')
@@ -215,6 +241,68 @@ export function FolhaMarcarFalta({
               )}
             </div>
           )}
+
+          {/*
+            §7.1 — a única pergunta sobre atestado que o app faz, e ela mora
+            aqui porque é aqui que a pessoa sabe a resposta. Não muda o efeito
+            mostrado acima de propósito: em boa parte das faculdades o atestado
+            comum não abona frequência, então marcar não pode fazer o
+            percentual cair. É registro de que o papel existe.
+          */}
+          <div>
+            <button
+              type="button"
+              aria-pressed={temAtestado}
+              onClick={() => {
+                setTemAtestado(!temAtestado)
+              }}
+              className={cn(
+                'flex w-full items-center gap-3 rounded-controle border-2 px-3.5 py-3 text-left transition-colors',
+                temAtestado ? 'border-acento bg-acento-suave' : 'border-borda',
+              )}
+            >
+              <FileCheck2
+                className={cn('size-5 shrink-0', temAtestado ? 'text-acento' : 'text-texto-fraco')}
+              />
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-bold text-texto">
+                  Tenho atestado para esta falta
+                </span>
+                <span className="block text-xs font-semibold text-texto-suave">
+                  Fica registrado. A falta continua contando para o limite.
+                </span>
+              </span>
+            </button>
+
+            {temAtestado && (
+              <div className="mt-2 rounded-interno bg-superficie-2 p-3.5">
+                <label
+                  htmlFor="cobre-ate"
+                  className="mb-1.5 block text-xs font-bold text-texto-suave"
+                >
+                  O atestado cobre até
+                </label>
+                <input
+                  id="cobre-ate"
+                  type="date"
+                  value={cobreAte}
+                  min={data}
+                  max={hoje}
+                  onChange={(e) => {
+                    setCobreAte(e.target.value)
+                  }}
+                  className="h-12 w-full rounded-controle border-2 border-borda bg-superficie px-4 font-semibold text-texto outline-none transition-colors focus:border-acento"
+                />
+                <p className="mt-1.5 text-xs font-semibold text-texto-fraco">
+                  {cobreAte === '' || cobreAte <= data
+                    ? 'Opcional. Um atestado costuma cobrir vários dias — preencha e ele alcança as outras faltas do período.'
+                    : alcancadas === 0
+                      ? `Nenhuma outra falta registrada até ${formatarBR(cobreAte)}.`
+                      : `Marca também ${String(alcancadas)} ${alcancadas === 1 ? 'falta já registrada' : 'faltas já registradas'} até ${formatarBR(cobreAte)}, em todas as disciplinas.`}
+                </p>
+              </div>
+            )}
+          </div>
 
           {erro !== null && (
             <p

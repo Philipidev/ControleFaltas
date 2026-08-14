@@ -106,16 +106,20 @@ export const LIMITES_PADRAO: Limites = {
   faixaAmarela: 0.2,
 }
 
-/** Regras que a spec marca como decisão do curso (§7.1, §7.5). */
+/**
+ * O que sobrou de configurável sobre atestado (§7.5).
+ *
+ * A §7.1 tinha um segundo campo aqui — `justificadaConta`, "a falta com
+ * atestado sai do cálculo de risco?" — e ele foi embora de propósito. Atestado
+ * é anotação: a falta conta igual, e o app guarda que você tem o papel. O
+ * motivo está em `horasQueContam`, em risco.ts.
+ */
 export interface RegrasFalta {
-  /** §7.1: falta justificada desconta da carga horária? */
-  readonly justificadaConta: boolean
   /** §7.5: atestado zera o streak de presença? */
   readonly justificadaQuebraStreak: boolean
 }
 
 export const REGRAS_PADRAO: RegrasFalta = {
-  justificadaConta: false,
   justificadaQuebraStreak: false,
 }
 

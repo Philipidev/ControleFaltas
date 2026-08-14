@@ -41,10 +41,7 @@ export function FormularioPersonalizada({
   const emLote = useAplicarRegraEmLote(usuarioId)
 
   const [nome, setNome] = useState('')
-  const [regra, setRegra] = useState<RegraEditavel>({
-    limiteReprovacao: null,
-    justificadaConta: null,
-  })
+  const [regra, setRegra] = useState<RegraEditavel>({ limiteReprovacao: null })
   const [aplicadas, setAplicadas] = useState<number | null>(null)
   const [carga, setCarga] = useState('60')
   const [cor, setCor] = useState<string>(CORES_MATERIA[0])
@@ -77,10 +74,7 @@ export function FormularioPersonalizada({
         periodo,
         semestre,
         grade: [...grade],
-        regra: {
-          limite_reprovacao: regra.limiteReprovacao,
-          justificada_conta: regra.justificadaConta,
-        },
+        regra: { limite_reprovacao: regra.limiteReprovacao },
       })
       aoConcluir()
     } catch (e) {
@@ -177,7 +171,6 @@ export function FormularioPersonalizada({
           aoMudar={setRegra}
           herdado={{
             limite: contexto.geral.limites.limiteReprovacao,
-            justificadaConta: contexto.geral.regras.justificadaConta,
             origem: FRASE_NIVEL[contexto.geral.origem.limiteReprovacao],
           }}
         />
@@ -195,10 +188,7 @@ export function FormularioPersonalizada({
           aoAplicar={() => {
             emLote.mutate(
               {
-                regra: {
-                  limite_reprovacao: regra.limiteReprovacao,
-                  justificada_conta: regra.justificadaConta,
-                },
+                regra: { limite_reprovacao: regra.limiteReprovacao },
                 escopo: { tipo: 'minhas-pessoais' },
               },
               { onSuccess: setAplicadas },

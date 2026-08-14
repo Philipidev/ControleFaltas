@@ -46,8 +46,11 @@ describe('destinoDoAlerta — cada alerta resolve o próprio assunto', () => {
     expect(destinoDoAlerta('faixa_alterada', {}, null)).toBeNull()
   })
 
-  it('prazo de atestado leva às faltas, onde se anexa o arquivo', () => {
-    expect(destinoDoAlerta('prazo_atestado', {}, null)).toBe('/faltas')
+  it('prazo de atestado ficou inerte: o tipo existe no enum e não leva a lugar nenhum', () => {
+    // A 0015 tirou o prazo. Nenhum trigger grava este tipo, e o valor sobrou no
+    // enum do banco só porque recriar um enum em uso não valeria a migration.
+    expect(destinoDoAlerta('prazo_atestado', {}, null)).toBeNull()
+    expect(acaoDoAlerta('prazo_atestado')).toBeNull()
   })
 
   it('resumo e streak não têm destino: o texto já é a informação inteira', () => {
@@ -83,7 +86,7 @@ describe('acaoDoAlerta — o rótulo que revela que dá para tocar', () => {
   it('descreve a ação concreta de cada tipo com destino', () => {
     expect(acaoDoAlerta('convite_grupo')).toBe('Responder convite')
     expect(acaoDoAlerta('solicitacao_grupo')).toBe('Ver pedido')
-    expect(acaoDoAlerta('prazo_atestado')).toBe('Anexar atestado')
+    expect(acaoDoAlerta('virada_semestre')).toBe('Arquivar semestre')
   })
 
   it('é null exatamente onde destinoDoAlerta também é', () => {

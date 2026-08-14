@@ -2,9 +2,8 @@ import { BellOff, CalendarClock, Check, ChevronRight } from 'lucide-react'
 import { Link } from 'react-router'
 
 import { Cartao } from '@/components/ui/Cartao.tsx'
-import { useFaltas, useMarcarNotificacaoLida, useNotificacoes } from '@/data/queries.ts'
+import { useMarcarNotificacaoLida, useNotificacoes } from '@/data/queries.ts'
 import { formatarBR } from '@/domain/data.ts'
-import { faltasComPrazoCorrendo } from '@/domain/justificativa.ts'
 import { acaoDoAlerta, destinoDoAlerta, emojiDoAlerta } from '@/domain/notificacoes.ts'
 import { formatarHoras } from '@/domain/risco.ts'
 import { useUsuarioId } from '@/features/auth/contexto.ts'
@@ -16,30 +15,27 @@ import type { LinhaNotificacao } from '@/types/database.ts'
 /**
  * §6 — Alertas e notificações.
  *
- * Três fontes, com origens diferentes:
+ * Duas fontes, com origens diferentes:
  *
  * 1. Mudança de faixa — vem do banco. O trigger trg_falta_notifica compara o
  *    status antes e depois de cada falta e grava a notificação. Como é
  *    trigger, funciona mesmo se a falta for registrada por outro caminho.
- * 2. Prazo de atestado acabando — calculado no cliente a partir das faltas,
- *    porque depende só de data e não vale um round-trip.
- * 3. Resumo semanal — o mesmo cálculo da §6, também no cliente.
+ * 2. Resumo semanal — o mesmo cálculo da §6, no cliente.
+ *
+ * Havia uma terceira, "prazo de atestado acabando". Não há mais prazo para
+ * marcar uma falta com atestado (0015), então não há o que avisar.
  */
 export function TelaAlertas() {
   const usuarioId = useUsuarioId()
   const painel = usePainel(usuarioId)
-  const faltas = useFaltas(usuarioId)
   const notificacoes = useNotificacoes(usuarioId)
   const marcarLida = useMarcarNotificacaoLida(usuarioId)
 
   if (painel.erro !== null) return <Erro erro={painel.erro} />
   if (painel.carregando || notificacoes.isPending) return <Esqueleto />
 
-  const prazosCorrendo = faltasComPrazoCorrendo(faltas.data ?? [], painel.hoje, 3)
   const lista = notificacoes.data ?? []
   const naoLidas = lista.filter((n) => !n.lida).length
-
-  const nomePorId = new Map(painel.cartoes.map((c) => [c.disciplina.id, c.disciplina]))
 
   return (
     <>
@@ -77,37 +73,6 @@ export function TelaAlertas() {
             </ul>
           )}
         </Cartao>
-
-        {/* §7.1 — prazos de atestado prestes a vencer */}
-        {prazosCorrendo.length > 0 && (
-          <Cartao className="p-5">
-            <h2 className="font-extrabold text-texto">Prazos de atestado acabando</h2>
-            <ul className="mt-3 space-y-2">
-              {prazosCorrendo.map(({ falta, situacao }) => (
-                <li
-                  key={falta.id}
-                  className={cn(
-                    'rounded-interno px-3 py-2.5',
-                    situacao.urgente ? 'bg-amarelo-suave' : 'bg-superficie-2',
-                  )}
-                >
-                  <p
-                    className={cn(
-                      'text-sm font-bold',
-                      situacao.urgente ? 'text-amarelo' : 'text-texto',
-                    )}
-                  >
-                    {nomePorId.get(falta.disciplinaId)?.nome ?? 'Disciplina'} ·{' '}
-                    {formatarBR(falta.data)}
-                  </p>
-                  <p className="mt-0.5 text-xs font-semibold text-texto-suave">
-                    {situacao.mensagem}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          </Cartao>
-        )}
 
         {/* §6 — mudanças de faixa, gravadas pelo trigger */}
         <section>

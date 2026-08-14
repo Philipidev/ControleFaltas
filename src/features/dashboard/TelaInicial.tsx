@@ -1,4 +1,4 @@
-import { Archive, Flame, Plus } from 'lucide-react'
+import { Archive, Flame, Library, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
 
@@ -128,6 +128,21 @@ export function TelaInicial() {
                 />
               ))}
             </div>
+
+            {/*
+              A mesma porta do estado vazio, que some assim que existe a
+              primeira disciplina — e sumia levando junto o único caminho até a
+              tela. Aqui ela fica onde a pessoa procura: no fim da lista de
+              matérias, que é o que ela está olhando quando quer mexer nelas.
+            */}
+            <Botao
+              variante="secundario"
+              larguraTotal
+              iconeInicio={<Library className="size-4" />}
+              onClick={() => void navegar('/disciplinas')}
+            >
+              Gerenciar disciplinas
+            </Botao>
           </>
         )}
       </main>

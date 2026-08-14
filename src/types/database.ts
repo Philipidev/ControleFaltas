@@ -13,8 +13,10 @@
  *    preenche as horas a partir da grade. Se este campo fosse obrigatório, o
  *    tipo estaria convidando a UI a inventar um número.
  *
- * 2. `faltas.prazo_justificativa` não existe em Insert nem em Update. É coluna
- *    GENERATED ALWAYS — o banco calcula, ninguém escreve.
+ * 2. `faltas.justificada` é livre em Insert e em Update. Ela é o "tenho
+ *    atestado" — anotação, não desconto: quem lê o número de risco não a vê
+ *    (ver `horasQueContam`, em domain/risco.ts). Já houve prazo e anexo aqui;
+ *    a 0015 tirou os dois.
  */
 
 export type Json =
@@ -96,7 +98,6 @@ export type Database = {
           limite_reprovacao: number | null
           faixa_verde: number | null
           faixa_amarela: number | null
-          justificada_conta: boolean | null
           /** 0014 — o período letivo corrente, ex: '2026.2'. NULL = a turma não diz. */
           semestre: string | null
           fim_do_semestre: string | null
@@ -119,7 +120,6 @@ export type Database = {
           limite_reprovacao?: number | null
           faixa_verde?: number | null
           faixa_amarela?: number | null
-          justificada_conta?: boolean | null
           semestre?: string | null
           fim_do_semestre?: string | null
         }
@@ -139,7 +139,6 @@ export type Database = {
           limite_reprovacao?: number | null
           faixa_verde?: number | null
           faixa_amarela?: number | null
-          justificada_conta?: boolean | null
           semestre?: string | null
           fim_do_semestre?: string | null
         }
@@ -228,7 +227,8 @@ export type Database = {
            * geral (estágio, por exemplo).
            */
           limite_reprovacao: number | null
-          justificada_conta: boolean | null
+          /** 0016: a comunidade dona desta disciplina. NULL = catálogo oficial. */
+          grupo_id: string | null
         }
         Insert: {
           id?: string
@@ -244,7 +244,7 @@ export type Database = {
           personalizada?: boolean
           ativa?: boolean
           limite_reprovacao?: number | null
-          justificada_conta?: boolean | null
+          grupo_id?: string | null
         }
         Update: {
           nome?: string
@@ -257,7 +257,7 @@ export type Database = {
           cor?: string
           ativa?: boolean
           limite_reprovacao?: number | null
-          justificada_conta?: boolean | null
+          grupo_id?: string | null
         }
         Relationships: [
           {
@@ -351,15 +351,12 @@ export type Database = {
           /** date no formato ISO 'YYYY-MM-DD' (sem fuso — é um dia de aula). */
           data: string
           horas_perdidas: number
+          /** §7.1 — "tenho atestado". Anotação: não altera o cálculo de risco. */
           justificada: boolean
-          data_envio_atestado: string | null
-          anexo_path: string | null
           observacao: string | null
           horas_manuais: boolean
           criado_em: string
           atualizado_em: string
-          /** GENERATED: data + 7 dias. Só leitura. */
-          prazo_justificativa: string
         }
         Insert: {
           id?: string
@@ -372,18 +369,13 @@ export type Database = {
            */
           horas_perdidas?: number
           justificada?: boolean
-          data_envio_atestado?: string | null
-          anexo_path?: string | null
           observacao?: string | null
           horas_manuais?: boolean
         }
         Update: {
           data?: string
           horas_perdidas?: number
-          /** §7.1 — o banco recusa se já passou de data + 7 dias. */
           justificada?: boolean
-          data_envio_atestado?: string | null
-          anexo_path?: string | null
           observacao?: string | null
           horas_manuais?: boolean
         }
@@ -409,7 +401,6 @@ export type Database = {
           limite_reprovacao: number
           faixa_verde: number
           faixa_amarela: number
-          justificada_conta: boolean
           justificada_quebra_streak: boolean
           tema: string
           modo: string
@@ -422,7 +413,6 @@ export type Database = {
           limite_reprovacao?: number
           faixa_verde?: number
           faixa_amarela?: number
-          justificada_conta?: boolean
           justificada_quebra_streak?: boolean
           tema?: string
           modo?: string
@@ -433,7 +423,6 @@ export type Database = {
           limite_reprovacao?: number
           faixa_verde?: number
           faixa_amarela?: number
-          justificada_conta?: boolean
           justificada_quebra_streak?: boolean
           tema?: string
           modo?: string

@@ -1,114 +1,69 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-  calcularPrazo,
-  faltasComPrazoCorrendo,
-  PRAZO_ATESTADO_DIAS,
-  situacaoAtestado,
-} from './justificativa.ts'
+import { faltasCobertasPorAtestado } from './justificativa.ts'
 
-/**
- * §7.1 — "A faculdade só aceita atestado dentro de 7 dias a partir da data da
- * falta." O teste que importa é o do 7º contra o 8º dia.
- */
+/** §7.1 — um atestado cobre um período; uma falta é de um dia. */
 
-const FALTA = '2026-08-03'
-const PRAZO = '2026-08-10' // 03 + 7
+interface FaltaFalsa {
+  readonly id: string
+  readonly data: string
+  readonly justificada: boolean
+}
 
-describe('calcularPrazo', () => {
-  it('é a data da falta mais 7 dias', () => {
-    expect(PRAZO_ATESTADO_DIAS).toBe(7)
-    expect(calcularPrazo(FALTA)).toBe(PRAZO)
+function f(id: string, data: string, justificada = false): FaltaFalsa {
+  return { id, data, justificada }
+}
+
+// Uma semana doente: segunda a sexta, em duas disciplinas.
+const SEMANA = [
+  f('seg-mfc', '2026-08-10'),
+  f('seg-bio', '2026-08-10'),
+  f('qua-mfc', '2026-08-12'),
+  f('sex-bio', '2026-08-14'),
+]
+
+describe('faltasCobertasPorAtestado', () => {
+  it('alcança todo o intervalo, em todas as disciplinas', () => {
+    const cobertas = faltasCobertasPorAtestado(SEMANA, '2026-08-10', '2026-08-14')
+    expect(cobertas.map((x) => x.id)).toEqual(['seg-mfc', 'seg-bio', 'qua-mfc', 'sex-bio'])
   })
 
-  it('atravessa a virada de mês', () => {
-    expect(calcularPrazo('2026-08-28')).toBe('2026-09-04')
+  it('inclui as duas pontas', () => {
+    const cobertas = faltasCobertasPorAtestado(SEMANA, '2026-08-10', '2026-08-12')
+    expect(cobertas.map((x) => x.id)).toEqual(['seg-mfc', 'seg-bio', 'qua-mfc'])
   })
 
-  it('atravessa a virada de ano', () => {
-    expect(calcularPrazo('2026-12-30')).toBe('2027-01-06')
-  })
-})
-
-describe('situacaoAtestado — a fronteira dos 7 dias', () => {
-  it('no mesmo dia da falta, pode justificar', () => {
-    const s = situacaoAtestado(FALTA, FALTA)
-    expect(s.podeJustificar).toBe(true)
-    expect(s.diasRestantes).toBe(7)
+  it('não alcança nada fora do período', () => {
+    const fora = [...SEMANA, f('seg-seguinte', '2026-08-17')]
+    const cobertas = faltasCobertasPorAtestado(fora, '2026-08-10', '2026-08-14')
+    expect(cobertas.some((x) => x.id === 'seg-seguinte')).toBe(false)
   })
 
-  it('no 7º dia (último do prazo) ainda pode', () => {
-    const s = situacaoAtestado(FALTA, PRAZO)
-    expect(s.podeJustificar).toBe(true)
-    expect(s.expirado).toBe(false)
-    expect(s.diasRestantes).toBe(0)
-    expect(s.mensagem).toBe('Hoje é o último dia para justificar esta falta.')
+  it('ignora as que já têm atestado — a contagem promete quantas vão mudar', () => {
+    const parcial = [f('a', '2026-08-10', true), f('b', '2026-08-11')]
+    expect(faltasCobertasPorAtestado(parcial, '2026-08-10', '2026-08-14').map((x) => x.id)).toEqual(
+      ['b'],
+    )
   })
 
-  it('no 8º dia o prazo já era', () => {
-    const s = situacaoAtestado(FALTA, '2026-08-11')
-    expect(s.podeJustificar).toBe(false)
-    expect(s.expirado).toBe(true)
-    expect(s.diasRestantes).toBe(-1)
-    expect(s.mensagem).toContain('Prazo do atestado expirado')
+  it('intervalo que não passa do próprio dia não alcança ninguém', () => {
+    // A falta sendo criada já leva a marcação pelo insert; um "cobre até" igual
+    // à data não é intervalo.
+    expect(faltasCobertasPorAtestado(SEMANA, '2026-08-10', '2026-08-10')).toEqual([])
+    expect(faltasCobertasPorAtestado(SEMANA, '2026-08-12', '2026-08-10')).toEqual([])
   })
 
-  it('bem depois do prazo, continua bloqueado', () => {
-    expect(situacaoAtestado(FALTA, '2026-09-30').podeJustificar).toBe(false)
-  })
-})
+  it('o que ainda não foi registrado não entra — o app não guarda o período', () => {
+    // A limitação que o texto da tela precisa dizer: marcar na segunda um
+    // atestado "até sexta" alcança o que já está lançado e mais nada. As faltas
+    // de terça a sexta, que só serão registradas na volta, ficam de fora — e
+    // vão precisar da própria marcação.
+    const soSegunda = [f('seg-mfc', '2026-08-10')]
+    const cobertas = faltasCobertasPorAtestado(soSegunda, '2026-08-10', '2026-08-14')
+    expect(cobertas).toHaveLength(1)
+    expect(cobertas[0]?.id).toBe('seg-mfc')
 
-describe('situacaoAtestado — o "prazo restante visível" da §7.1', () => {
-  it('mostra a data limite quando ainda há folga', () => {
-    const s = situacaoAtestado(FALTA, '2026-08-05')
-    expect(s.diasRestantes).toBe(5)
-    expect(s.mensagem).toBe('Você tem até 10/08/2026 para justificar esta falta (5 dias).')
-    expect(s.urgente).toBe(false)
-  })
-
-  it('marca como urgente na véspera', () => {
-    const s = situacaoAtestado(FALTA, '2026-08-09')
-    expect(s.diasRestantes).toBe(1)
-    expect(s.urgente).toBe(true)
-    expect(s.mensagem).toBe('Você tem até amanhã, 10/08/2026, para justificar esta falta.')
-  })
-
-  it('marca como urgente no último dia', () => {
-    expect(situacaoAtestado(FALTA, PRAZO).urgente).toBe(true)
-  })
-
-  it('diz há quanto tempo venceu', () => {
-    expect(situacaoAtestado(FALTA, '2026-08-11').mensagem).toContain('ontem')
-    expect(situacaoAtestado(FALTA, '2026-08-14').mensagem).toContain('há 4 dias')
-  })
-})
-
-describe('faltasComPrazoCorrendo — para o alerta de prazo (§6)', () => {
-  const faltas = [
-    { data: '2026-08-03', justificada: false }, // vence em 10/08
-    { data: '2026-08-08', justificada: false }, // vence em 15/08
-    { data: '2026-08-01', justificada: false }, // venceu em 08/08
-    { data: '2026-08-04', justificada: true }, // já justificada
-  ]
-
-  it('lista só as que ainda dá para justificar e estão perto do fim', () => {
-    const urgentes = faltasComPrazoCorrendo(faltas, '2026-08-09', 2)
-    expect(urgentes).toHaveLength(1)
-    expect(urgentes[0]?.falta.data).toBe('2026-08-03')
-  })
-
-  it('ignora as já justificadas', () => {
-    const todas = faltasComPrazoCorrendo(faltas, '2026-08-09', 30)
-    expect(todas.every((u) => !u.falta.justificada)).toBe(true)
-  })
-
-  it('ignora as que já venceram', () => {
-    const todas = faltasComPrazoCorrendo(faltas, '2026-08-09', 30)
-    expect(todas.map((u) => u.falta.data)).not.toContain('2026-08-01')
-  })
-
-  it('ordena da mais urgente para a menos', () => {
-    const todas = faltasComPrazoCorrendo(faltas, '2026-08-09', 30)
-    expect(todas.map((u) => u.falta.data)).toEqual(['2026-08-03', '2026-08-08'])
+    // Com a semana inteira já lançada, a mesma chamada alcança as quatro.
+    expect(faltasCobertasPorAtestado(SEMANA, '2026-08-10', '2026-08-14')).toHaveLength(4)
   })
 })

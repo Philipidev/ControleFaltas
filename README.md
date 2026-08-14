@@ -4,7 +4,7 @@ App para estudantes registrarem faltas **por disciplina**, onde cada falta desco
 da aula daquele dia** — não "1 falta genérica". Mostra o risco de reprovação por frequência e
 permite comparar presença com a turma **sem expor número nenhum de ninguém**.
 
-Vite + React 19 + TypeScript strict · Supabase (Postgres + Auth + Storage + RLS) · PWA.
+Vite + React 19 + TypeScript strict · Supabase (Postgres + Auth + RLS) · PWA.
 
 > **Retomando o trabalho?** Leia [`CONTINUAR.md`](./CONTINUAR.md) primeiro. Ele registra o
 > que foi medido no iPhone sobre a faixa que o iOS reserva embaixo do PWA, o que ainda não
@@ -43,7 +43,7 @@ avulsas, sem abrir o SQL Editor.
 
 ---
 
-## As três regras que moram no banco
+## As regras que moram no banco
 
 A interface é conveniência; a garantia é o Postgres. Se alguém trocar o app por um `curl`,
 estas continuam valendo:
@@ -51,9 +51,13 @@ estas continuam valendo:
 | Regra | Onde vive | O que acontece |
 |---|---|---|
 | **§3** — as horas vêm da grade | trigger `trg_falta_horas` | O cliente manda `horas_perdidas: 99` numa segunda de 4h; o banco grava **4**. Falta em dia sem aula é recusada. |
-| **§7.1** — atestado em 7 dias | trigger `trg_prazo_atestado` | Justificar uma falta de 8+ dias estoura com mensagem, venha de onde vier. |
 | **§5** — privacidade | RLS + `get_group_ranking` | `select * from faltas` devolve só as suas. O ranking é calculado dentro do banco e devolve **apenas a colocação**. |
 | **Comunidades** — pendente não é membro | `status='ativo'` em 4 funções | Quem só pediu para entrar não lê a lista de membros, nem os perfis, nem o ranking — e não conta na guarda de 3 pessoas. |
+| **§2** — o catálogo tem dono | RLS de `disciplinas` (0016) | Membro comum não cadastra disciplina na turma nem mexe na grade dela. A grade é o preço da falta: editável por qualquer um, dava para mudar quanto a falta do colega custa. |
+
+> Havia uma terceira regra aqui, a **§7.1**: `trg_prazo_atestado` recusava justificar uma falta
+> com mais de 7 dias. A 0015 apagou o trigger. O prazo é da secretaria, não do app, e travar o
+> registro só impedia a pessoa de anotar o que de fato aconteceu.
 
 ### Por que "pendente não é membro" é a regra mais delicada
 
@@ -63,8 +67,34 @@ bastaria pedir para entrar numa comunidade pública para ler nome, curso e turma
 membros — **sem nunca ser aprovado**. A guarda de "mínimo 3 membros" do ranking tem o mesmo
 problema pelo avesso: dois amigos mais um convite fantasma a destravariam.
 
-`npm run db:test-rls` verifica as três atacando a API de verdade, com um usuário autenticado
-tentando o que a spec proíbe.
+`npm run db:test-rls` ataca a API de verdade, com um usuário autenticado tentando o que a
+spec proíbe.
+
+---
+
+## De quem é o catálogo
+
+A §2 supunha dois papéis: uma coordenação mantém o catálogo oficial, os alunos escolhem dele.
+Quem instala este app é um estudante que cria a própria turma — e descobria que **não podia
+cadastrar as disciplinas dela**. Escrever no catálogo pedia `profiles.role = 'admin'`, que é
+quem administra o **app**; ser dono da comunidade é `grupo_membros.papel`, outra coisa. A
+única saída era se promover a admin de tudo para cadastrar três matérias.
+
+A 0016 acrescentou o caso que faltava, em `disciplinas.grupo_id`:
+
+| `personalizada` | `grupo_id` | O que é | Quem escreve | Entra no ranking |
+|---|---|---|---|---|
+| `false` | `null` | catálogo oficial do app | `is_admin()` | sim |
+| `false` | preenchido | **disciplina da turma** | dono/admin da comunidade | sim |
+| `true` | — | avulsa/pessoal | só quem criou | não |
+
+A do meio é catálogo de verdade: aceita a regra do curso da comunidade, entra no ranking e é
+a mesma para todo mundo da turma. O que muda é só de quem é a chave. Um `CHECK` recusa
+`personalizada` com `grupo_id` — as duas coisas ao mesmo tempo não querem dizer nada, e
+criariam uma disciplina que o ranking conta e a leitura trata como privada.
+
+Apagar a comunidade **não apaga as disciplinas** (`on delete set null`): levaria junto as
+matrículas e as faltas de cada membro por cascade.
 
 ---
 
@@ -80,8 +110,8 @@ A regra é resolvida em cascata, do específico ao geral. Cada nível guarda `nu
 
 | Nível | Guarda | Quem preenche |
 |---|---|---|
-| Disciplina | limite, atestado desconta | admin do catálogo, ou quem cria a avulsa |
-| Comunidade | os dois acima + faixas de alerta | dono/admin da turma |
+| Disciplina | limite de reprovação | admin do catálogo, ou quem cria a avulsa |
+| Comunidade | limite + faixas de alerta | dono/admin da turma |
 | Você | tudo, em Ajustes | você |
 | Padrão | 25% / 15% / 20% | — |
 
@@ -119,12 +149,12 @@ mão de um colega.
 |---|---|
 | `npm run dev` | servidor de desenvolvimento |
 | `npm run build` | `tsc --noEmit` + build estático em `dist/` |
-| `npm run test` | 326 testes (Vitest) — 304 deles do domínio puro |
+| `npm run test` | 319 testes (Vitest), quase todos do domínio puro |
 | `npm run typecheck` / `lint` | TypeScript strict / ESLint |
 | `npm run db:migrate` | aplica as migrations pendentes |
 | `npm run db:sql` | consulta avulsa ou arquivo `.sql` |
 | `npm run db:seed` | usuários, faltas e comunidades de demonstração |
-| `npm run db:test-rls` | 36 ataques contra o banco real |
+| `npm run db:test-rls` | ataques reais contra o banco |
 
 ---
 
@@ -134,7 +164,9 @@ mão de um colega.
 supabase/migrations/   0001 tabelas · 0002 triggers · 0003 RLS · 0004 ranking · 0005 storage
                        0006 comunidades · 0007 RPCs das comunidades
                        0013 regra do curso em cascata · 0014 semestre da turma
-src/domain/            matemática da spec — TypeScript puro, sem React e sem rede, 304 testes
+                       0015 atestado vira anotação · 0016 disciplinas da turma
+                       0015 atestado vira anotação (e desfaz a 0005)
+src/domain/            matemática da spec — TypeScript puro, sem React e sem rede
 src/data/              repositório tipado + hooks TanStack Query (nenhuma tela importa supabase)
 src/theme/             6 temas × claro/escuro, derivados em oklch
 src/features/          uma pasta por tela
@@ -148,6 +180,21 @@ respondendo sem ida e volta de rede. A view existe para o que roda no servidor.
 ---
 
 ## Decisões que valem explicação
+
+**O atestado é anotação, não desconto.** Marcar uma falta como "com atestado" não derruba o
+percentual: ela conta igual a qualquer outra. Isso é o contrário do que o app fazia, e a troca
+foi deliberada. Em boa parte das faculdades brasileiras o atestado comum **não** abona
+frequência — quem tira falta da frequência é o regime de exercícios domiciliares
+(Decreto-Lei 1.044/69), que é para afastamento longo e se pede na secretaria. Enquanto o
+desconto era configurável, a resposta certa dependia de um regimento que quem cadastra a
+disciplina não tem em mãos, e a pergunta aparecia em quatro telas com cinco redações
+diferentes. Escolher errar para o lado seguro custa mostrar um percentual mais alto do que o
+da secretaria em algumas faculdades; escolher o outro lado custa dizer "verde" para quem
+reprovou.
+
+O que a marcação faz é ficar registrada: `qtd_justificadas`/`total_justificado` alimentam
+"3 faltas, 2 com atestado" na disciplina e uma coluna própria no PDF. É o seu controle de qual
+falta tem papel — útil na hora de conversar com a secretaria, inútil como analgésico.
 
 **O semáforo é um medidor linear, não um gauge radial.** "8h de um teto de 17,5h" é uma razão
 contra um limite, e um arco de duas fatias mostraria isso com menos precisão — além de não ter
@@ -234,7 +281,7 @@ revisão nas lojas. Fica registrado aqui para a decisão ser consciente, não um
 ### Levar as aulas para o calendário do celular
 
 `Calendário → botão de agenda no topo` gera um `.ics` (RFC 5545) com a grade como evento
-semanal até o fim do semestre, e opcionalmente os prazos de atestado da §7.1.
+semanal até o fim do semestre.
 
 Também não há API para escrever no calendário nativo — o `.ics` é a ponte. O que muda a
 experiência é como ele chega lá: o caminho principal é `navigator.share` **com o arquivo**, que

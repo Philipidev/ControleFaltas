@@ -3,8 +3,8 @@ import { useMutation, useQuery, useQueryClient, type UseQueryResult } from '@tan
 import { chaves } from './chaves.ts'
 import { paraDisciplina, paraFaltaDetalhada, type FaltaDetalhada } from './mapeadores.ts'
 import type { RegraDoNivel } from '@/domain/limites.ts'
-import type { Disciplina, Limites, RegrasFalta } from '@/domain/tipos.ts'
-import { LIMITES_PADRAO, REGRAS_PADRAO } from '@/domain/tipos.ts'
+import type { Disciplina, Limites } from '@/domain/tipos.ts'
+import { LIMITES_PADRAO } from '@/domain/tipos.ts'
 import { mensagemDeErro, supabase } from '@/lib/supabase.ts'
 import type {
   Atualizacao,
@@ -123,7 +123,6 @@ export function nivelDoUsuario(config: LinhaConfiguracoes | undefined): RegraDoN
     limiteReprovacao: config.limite_reprovacao,
     faixaVerde: config.faixa_verde,
     faixaAmarela: config.faixa_amarela,
-    justificadaConta: config.justificada_conta,
     justificadaQuebraStreak: config.justificada_quebra_streak,
   }
 }
@@ -135,7 +134,6 @@ export function nivelDaComunidade(grupo: LinhaGrupo | null | undefined): RegraDo
     limiteReprovacao: grupo.limite_reprovacao,
     faixaVerde: grupo.faixa_verde,
     faixaAmarela: grupo.faixa_amarela,
-    justificadaConta: grupo.justificada_conta,
   }
 }
 
@@ -146,14 +144,6 @@ export function limitesDe(config: LinhaConfiguracoes | undefined): Limites {
     limiteReprovacao: config.limite_reprovacao,
     faixaVerde: config.faixa_verde,
     faixaAmarela: config.faixa_amarela,
-  }
-}
-
-export function regrasDe(config: LinhaConfiguracoes | undefined): RegrasFalta {
-  if (config === undefined) return REGRAS_PADRAO
-  return {
-    justificadaConta: config.justificada_conta,
-    justificadaQuebraStreak: config.justificada_quebra_streak,
   }
 }
 
@@ -209,7 +199,6 @@ export function useMinhasDisciplinas(
         semestre: m.disciplinas.semestre,
         regra: {
           limiteReprovacao: m.disciplinas.limite_reprovacao,
-          justificadaConta: m.disciplinas.justificada_conta,
         },
       }))
     },
@@ -240,7 +229,6 @@ export function useCatalogo(curso: string, periodo: string, semestre: string) {
 /** Só a regra do curso entra no lote — nunca carga horária ou grade. */
 export interface RegraEmLote {
   readonly limite_reprovacao: number | null
-  readonly justificada_conta: boolean | null
 }
 
 /**
@@ -400,7 +388,6 @@ export function useCriarDisciplinaPersonalizada(usuarioId: string) {
           personalizada: true,
           criado_por: usuarioId,
           limite_reprovacao: nova.regra?.limite_reprovacao ?? null,
-          justificada_conta: nova.regra?.justificada_conta ?? null,
         })
         .select('id')
         .single()
@@ -427,6 +414,111 @@ export function useCriarDisciplinaPersonalizada(usuarioId: string) {
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: chaves.disciplinas(usuarioId) })
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Disciplinas da turma — 0016
+//
+// O terceiro caso da §2: nem catálogo oficial do app, nem avulsa de uma pessoa.
+// Quem administra a comunidade cadastra as matérias dela, e todo membro ativo
+// as enxerga e se matricula. É catálogo de verdade — entra no ranking e aceita
+// a regra do curso —, só que a chave é `grupo_membros.papel` em vez de
+// `profiles.role`. O RLS de 0016 é quem garante; aqui é só conveniência.
+// ---------------------------------------------------------------------------
+
+export function useDisciplinasDaTurma(grupoId: string | null): UseQueryResult<Disciplina[]> {
+  return useQuery({
+    queryKey: chaves.disciplinasDaTurma(grupoId ?? ''),
+    enabled: grupoId !== null,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('disciplinas')
+        .select('*, disciplina_grade(dia_semana, horas, hora_inicio)')
+        .eq('grupo_id', grupoId ?? '')
+        .eq('ativa', true)
+        .order('nome')
+      if (error !== null) lancar(error)
+      return data.map(paraDisciplina)
+    },
+  })
+}
+
+export function useCriarDisciplinaDaTurma(usuarioId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (nova: {
+      grupoId: string
+      nome: string
+      cargaHorariaTotal: number
+      cor: string
+      /** Vêm da comunidade, não de quem digita: é a turma que responde por eles. */
+      curso: string
+      periodo: string
+      turma: string | null
+      semestre: string
+      grade: { dia: number; horas: number }[]
+    }) => {
+      const { data: disciplina, error: erroDisciplina } = await supabase
+        .from('disciplinas')
+        .insert({
+          nome: nova.nome,
+          curso: nova.curso,
+          periodo: nova.periodo,
+          turma: nova.turma,
+          semestre: nova.semestre,
+          carga_horaria_total: nova.cargaHorariaTotal,
+          cor: nova.cor,
+          // Não é avulsa: é da turma. O CHECK `disciplina_avulsa_sem_grupo`
+          // recusa a combinação personalizada + grupo_id.
+          personalizada: false,
+          grupo_id: nova.grupoId,
+          criado_por: usuarioId,
+        })
+        .select('id')
+        .single()
+      if (erroDisciplina !== null) lancar(erroDisciplina)
+
+      if (nova.grade.length > 0) {
+        const { error: erroGrade } = await supabase.from('disciplina_grade').insert(
+          nova.grade.map((g) => ({
+            disciplina_id: disciplina.id,
+            dia_semana: g.dia,
+            horas: g.horas,
+          })),
+        )
+        if (erroGrade !== null) lancar(erroGrade)
+      }
+
+      return disciplina.id
+    },
+    onSuccess: (_id, v) => {
+      void qc.invalidateQueries({ queryKey: chaves.disciplinasDaTurma(v.grupoId) })
+      // A tela de disciplinas oferece as da turma para matricular.
+      void qc.invalidateQueries({ queryKey: chaves.disciplinas(usuarioId) })
+    },
+  })
+}
+
+/**
+ * Apagar a disciplina da turma, não a minha matrícula.
+ *
+ * Alcança quem já se matriculou: o `on delete cascade` de `matriculas` e de
+ * `faltas` leva junto o que aquelas pessoas registraram. Por isso a tela
+ * pergunta antes, e por isso isto só aparece para quem administra.
+ */
+export function useRemoverDisciplinaDaTurma(usuarioId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ disciplinaId }: { grupoId: string; disciplinaId: string }) => {
+      const { error } = await supabase.from('disciplinas').delete().eq('id', disciplinaId)
+      if (error !== null) lancar(error)
+    },
+    onSuccess: (_r, v) => {
+      void qc.invalidateQueries({ queryKey: chaves.disciplinasDaTurma(v.grupoId) })
+      void qc.invalidateQueries({ queryKey: chaves.disciplinas(usuarioId) })
+      void qc.invalidateQueries({ queryKey: chaves.faltas(usuarioId) })
     },
   })
 }
@@ -508,7 +600,6 @@ export function useSalvarDisciplinaAdmin() {
         carga_horaria_total: entrada.cargaHorariaTotal,
         cor: entrada.cor,
         limite_reprovacao: entrada.regra?.limite_reprovacao ?? null,
-        justificada_conta: entrada.regra?.justificada_conta ?? null,
       }
 
       let id = entrada.id
@@ -593,10 +684,16 @@ export function useMarcarFalta(usuarioId: string) {
     mutationFn: async ({
       disciplinaId,
       data,
+      justificada = false,
+      cobreAte = null,
       observacao,
     }: {
       disciplinaId: string
       data: string
+      /** §7.1 — "tenho atestado". É anotação: não muda o cálculo de risco. */
+      justificada?: boolean
+      /** Último dia coberto pelo mesmo atestado, quando cobre mais de um. */
+      cobreAte?: string | null
       observacao?: string
     }) => {
       // horas_perdidas fica de fora de propósito (§3): o trigger
@@ -606,9 +703,25 @@ export function useMarcarFalta(usuarioId: string) {
         usuario_id: usuarioId,
         disciplina_id: disciplinaId,
         data,
+        justificada,
         observacao: observacao ?? null,
       })
       if (error !== null) lancar(error)
+
+      // Um atestado cobre um período, não uma aula: ficar doente de segunda a
+      // sexta são oito faltas em quatro disciplinas. O intervalo alcança o que
+      // JÁ está registrado — o app não guarda o período do atestado, então
+      // falta registrada depois disto não entra sozinha, e é por isso que a
+      // tela fala em "faltas já registradas".
+      if (justificada && cobreAte !== null && cobreAte > data) {
+        const { error: erroIntervalo } = await supabase
+          .from('faltas')
+          .update({ justificada: true })
+          .eq('usuario_id', usuarioId)
+          .gte('data', data)
+          .lte('data', cobreAte)
+        if (erroIntervalo !== null) lancar(erroIntervalo)
+      }
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: chaves.faltas(usuarioId) })
@@ -634,8 +747,8 @@ export function useJustificarFalta(usuarioId: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ faltaId, justificada }: { faltaId: string; justificada: boolean }) => {
-      // O banco recusa se já passou de data + 7 (trg_prazo_atestado). A UI
-      // desabilita o botão antes, mas a garantia é lá.
+      // Sem prazo e sem anexo: é uma anotação, e o banco aceita ligar e
+      // desligar quando a pessoa quiser.
       const { error } = await supabase
         .from('faltas')
         .update({ justificada })
@@ -646,37 +759,6 @@ export function useJustificarFalta(usuarioId: string) {
       void qc.invalidateQueries({ queryKey: chaves.faltas(usuarioId) })
     },
   })
-}
-
-/** §7.1 — anexo do atestado. Caminho sempre {uid}/{faltaId} (ver 0005). */
-export function useEnviarAtestado(usuarioId: string) {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async ({ faltaId, arquivo }: { faltaId: string; arquivo: File }) => {
-      const extensao = arquivo.name.split('.').pop() ?? 'jpg'
-      const caminho = `${usuarioId}/${faltaId}.${extensao}`
-
-      const { error: erroUpload } = await supabase.storage
-        .from('atestados')
-        .upload(caminho, arquivo, { upsert: true })
-      if (erroUpload !== null) lancar(erroUpload)
-
-      const { error } = await supabase
-        .from('faltas')
-        .update({ anexo_path: caminho })
-        .eq('id', faltaId)
-      if (error !== null) lancar(error)
-    },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: chaves.faltas(usuarioId) })
-    },
-  })
-}
-
-/** URL temporária do anexo — o bucket é privado, nunca há link público. */
-export async function urlDoAtestado(caminho: string): Promise<string | null> {
-  const { data } = await supabase.storage.from('atestados').createSignedUrl(caminho, 60)
-  return data?.signedUrl ?? null
 }
 
 // ---------------------------------------------------------------------------

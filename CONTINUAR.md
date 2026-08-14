@@ -194,6 +194,55 @@ voltar: membro comum não muda a regra da turma, e chave pessoal nenhuma mexe no
 
 ---
 
+## 1c. O atestado virou anotação (13/08/2026)
+
+Metade da 1b acabou de ser desfeita, e por um motivo que só apareceu quando um usuário
+tentou usar a tela: **`justificada_conta` aparecia com cinco rótulos diferentes em quatro
+telas**, duas delas formulários que não têm nada a ver com faltar aula.
+
+| Onde | Pergunta | Opções |
+|---|---|---|
+| `EditorDeRegra` (cadastro de disciplina) | "Quando você anexa um atestado, aquela falta sai da conta?" | `Como já está` / `Sai` / `Continua contando` |
+| `RegraDaComunidade` (edição) | "Falta justificada desconta da carga" | `Cada um decide` / `Desconta` / `Não desconta` |
+| `RegraDaComunidade` (leitura) | "Atestado desconta da carga" | `não definido` / `sim` / `não` |
+| `TelaConfiguracoes` | "Falta justificada desconta da carga" | interruptor |
+
+A pergunta pedia que um aluno legislasse sobre o regimento no meio de um cadastro. Agora não
+há pergunta: **o atestado não desconta**, e ponto. O porquê está no README, em "O atestado é
+anotação, não desconto" — resumo: na maioria das faculdades o atestado comum não abona
+frequência, e errar para o lado do desconto é dizer "verde" para quem reprovou.
+
+Junto foram embora, na `0015`:
+
+- **O prazo de 7 dias** (`trg_prazo_atestado`, `prazo_justificativa`, o cartão em Alertas, os
+  prazos no `.ics`). O prazo é da secretaria; travar o registro só impedia anotar a verdade.
+- **O anexo de arquivo** (`anexo_path`, o bucket `atestados` e as quatro policies da 0005).
+  Ele estava quebrado de três formas e ninguém tinha percebido: enviar o arquivo não marcava a
+  falta como justificada e `Ver atestado` só aparecia na ramificação `justificada`, então o
+  anexo **sumia da tela** depois de enviado; o botão `Anexar` desaparecia assim que você
+  justificava; e passados 7 dias os botões sumiam em vez de desabilitar, mostrando o texto cru
+  do Postgres.
+
+Ficou uma pergunta só, em `FolhaMarcarFalta`: *"Tenho atestado para esta falta"*, mais um
+campo opcional *"o atestado cobre até"* que alcança as faltas **já registradas** do intervalo,
+em todas as disciplinas. O app não guarda o período do atestado — falta registrada depois não
+entra sozinha —, e é por isso que o rótulo fala em "faltas já registradas" e mostra a contagem
+ao vivo antes de confirmar.
+
+### O que esperar
+
+**Os percentuais de quem já usava vão subir**, porque as faltas justificadas passaram a
+contar. É a direção segura, mas é visível, e o `db:seed` muda junto.
+
+### O que ficou sem fazer
+
+- **`Apagar falta` continua sem confirmação** (`TelaFaltas.tsx`). Achado no caminho, fora do
+  escopo.
+- **`supabase/APLICAR-TUDO.sql` está obsoleto** — é um pacote de `0001..0005` que já não
+  continha a 0013, e agora também não contém 0015. Ou se regenera, ou se apaga.
+
+---
+
 ## 2. Outros pendentes
 
 ### Nunca testado de verdade
@@ -231,14 +280,14 @@ respondeu.
 npm run dev          # Vite em :5173 (service worker DESLIGADO em dev)
 npm run typecheck    # tsc --noEmit
 npm run lint         # eslint
-npm run test         # vitest — 326 testes
+npm run test         # vitest — 319 testes
 npm run build        # tsc + vite build (é o que a Vercel roda)
 npm run icones       # regera os PNGs do ícone a partir da geometria do SVG
 
-npm run db:migrate   # aplica migrations pendentes (14 aplicadas)
+npm run db:migrate   # aplica migrations pendentes (15 aplicadas)
 npm run db:seed      # recria os 7 usuários demo, senha faltas123
 npm run db:sql -- "<sql>" | <arquivo.sql>
-npm run db:test-rls  # 36 ataques reais contra o banco
+npm run db:test-rls  # ataques reais contra o banco
 ```
 
 Contas demo: `voce@demo.test` (aluno), `admin@demo.test` (back-office), mais
@@ -281,11 +330,13 @@ maximizada. Dois truques que funcionaram:
 
 ### Onde estão as regras de negócio
 
-As três regras da spec moram **no banco**, não na interface:
+As regras da spec moram **no banco**, não na interface:
 
 - `trg_falta_horas` — a falta desconta as horas daquele dia da grade, e
   sobrescreve o que o cliente mandar.
-- `trg_prazo_atestado` — janela de 7 dias para justificar.
 - RLS + `get_group_ranking` — o ranking devolve posição, nunca número.
 
-`npm run db:test-rls` prova as três contra o banco de verdade.
+`npm run db:test-rls` prova as duas contra o banco de verdade.
+
+Eram três: `trg_prazo_atestado` guardava a janela de 7 dias para justificar. A
+0015 apagou o trigger — ver a seção 1c.

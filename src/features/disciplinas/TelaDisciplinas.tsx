@@ -1,4 +1,4 @@
-import { Check, Plus, Trash2, Users, X } from 'lucide-react'
+import { Check, Info, Plus, Trash2, Users, X } from 'lucide-react'
 import { useState } from 'react'
 
 import { FormularioPersonalizada } from './FormularioPersonalizada.tsx'
@@ -9,6 +9,7 @@ import { useMinhasComunidades } from '@/data/comunidades.ts'
 import {
   useCatalogo,
   useDesmatricular,
+  useDisciplinasDaTurma,
   useMatricular,
   useMinhasDisciplinas,
   usePerfil,
@@ -47,13 +48,6 @@ export function TelaDisciplinas() {
   const [criando, setCriando] = useState(false)
   const [turmaEscolhida, setTurmaEscolhida] = useState<string | null>(null)
 
-  if (minhas.error !== null) return <Erro erro={minhas.error} />
-  if (minhas.isPending || perfil.isPending) return <Esqueleto />
-
-  const matriculadas = minhas.data
-  const idsMatriculados = new Set(matriculadas.map((m) => m.disciplina.id))
-  const disponiveis = (catalogo.data ?? []).filter((d) => !idsMatriculados.has(d.id))
-
   /*
    * Qual turma responde pelas disciplinas desta pessoa.
    *
@@ -62,6 +56,10 @@ export function TelaDisciplinas() {
    * curso. Com mais de uma candidata o domínio se recusa a chutar, e aí a
    * escolha é oferecida — a errada colocaria a pessoa num ranking de
    * desconhecidos.
+   *
+   * Fica ACIMA dos early returns porque `useDisciplinasDaTurma` depende dele, e
+   * hook não pode ficar depois de um `return`. Enquanto o perfil não chegou,
+   * `candidatasDeTurma` devolve lista vazia e a query fica desligada.
    */
   const perfilAcademico = {
     curso: perfil.data?.curso ?? null,
@@ -72,6 +70,17 @@ export function TelaDisciplinas() {
   const candidatas = candidatasDeTurma(grupos, perfilAcademico)
   const turmaId = turmaDoAluno(grupos, perfilAcademico) ?? turmaEscolhida
   const turma = candidatas.find((c) => c.id === turmaId) ?? null
+
+  // 0016 — as que a própria turma cadastrou, além do catálogo oficial do app.
+  const daTurma = useDisciplinasDaTurma(turmaId)
+
+  if (minhas.error !== null) return <Erro erro={minhas.error} />
+  if (minhas.isPending || perfil.isPending) return <Esqueleto />
+
+  const matriculadas = minhas.data
+  const idsMatriculados = new Set(matriculadas.map((m) => m.disciplina.id))
+  const disponiveis = (catalogo.data ?? []).filter((d) => !idsMatriculados.has(d.id))
+  const disponiveisDaTurma = (daTurma.data ?? []).filter((d) => !idsMatriculados.has(d.id))
 
   // Disciplina pessoal fica de fora: ela é só sua, e não entra no ranking.
   const semTurma = matriculadas.filter((m) => !m.personalizada && m.grupoId === null)
@@ -189,6 +198,48 @@ export function TelaDisciplinas() {
           )}
         </section>
 
+        {/* 0016 — as que a própria turma cadastrou. Entram vinculadas a ela. */}
+        {disponiveisDaTurma.length > 0 && turma !== null && (
+          <section>
+            <h2 className="mb-1 px-1 text-sm font-extrabold text-texto-suave">
+              De {turma.nome}
+            </h2>
+            <p className="mb-3 px-1 text-xs font-semibold text-texto-fraco">
+              Cadastradas por quem administra a turma. Entram vinculadas a ela e contam no
+              ranking.
+            </p>
+
+            <div className="space-y-2">
+              {disponiveisDaTurma.map((d) => (
+                <button
+                  key={d.id}
+                  type="button"
+                  onClick={() => {
+                    matricular.mutate({ disciplinaId: d.id, turmaId })
+                  }}
+                  disabled={matricular.isPending}
+                  className="flex w-full items-center gap-3 rounded-card border-2 border-borda bg-superficie p-4 text-left transition-colors hover:border-acento disabled:opacity-50"
+                >
+                  <span
+                    aria-hidden="true"
+                    className="size-3 shrink-0 rounded-full"
+                    style={{ backgroundColor: d.cor }}
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-bold text-texto">{d.nome}</span>
+                    <span className="block text-xs font-semibold text-texto-fraco">
+                      {formatarHoras(d.cargaHorariaTotal)} ·{' '}
+                      {d.grade.length === 1 ? '1 dia' : `${String(d.grade.length)} dias`} por
+                      semana
+                    </span>
+                  </span>
+                  <Plus className="size-5 shrink-0 text-acento" />
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
         {disponiveis.length > 0 && (
           <section>
             <h2 className="mb-1 px-1 text-sm font-extrabold text-texto-suave">
@@ -229,12 +280,30 @@ export function TelaDisciplinas() {
           </section>
         )}
 
-        {disponiveis.length === 0 && catalogo.isSuccess && matriculadas.length > 0 && (
-          <p className="flex items-center justify-center gap-2 text-sm font-semibold text-texto-fraco">
-            <Check className="size-4" />
-            Você já está em todas as disciplinas do seu período.
-          </p>
-        )}
+        {/*
+          Duas situações davam a MESMA frase, e uma delas era mentira: sem
+          catálogo cadastrado para o curso/período, `disponiveis` também é
+          vazio, e a tela dizia "você já está em todas" para quem não estava em
+          nenhuma. Quem usa o app sozinho, sem admin alimentando o catálogo, via
+          isso como "não há mais nada a fazer aqui".
+        */}
+        {disponiveis.length === 0 &&
+          disponiveisDaTurma.length === 0 &&
+          catalogo.isSuccess &&
+          matriculadas.length > 0 &&
+          (catalogo.data.length === 0 ? (
+            <p className="flex items-center justify-center gap-2 text-center text-sm font-semibold text-texto-fraco">
+              <Info className="size-4 shrink-0" />
+              {turma === null
+                ? `Não há catálogo cadastrado para ${perfil.data?.curso ?? 'seu curso'} · ${perfil.data?.periodo ?? 'seu período'} · ${semestre}. Crie as suas abaixo.`
+                : `Nada a mais para escolher. Quem administra ${turma.nome} pode cadastrar as disciplinas dela na tela da comunidade — ou crie as suas abaixo.`}
+            </p>
+          ) : (
+            <p className="flex items-center justify-center gap-2 text-sm font-semibold text-texto-fraco">
+              <Check className="size-4 shrink-0" />
+              Você já está em todas as disciplinas do seu período.
+            </p>
+          ))}
 
         <section>
           {criando ? (

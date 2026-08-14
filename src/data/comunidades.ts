@@ -287,7 +287,6 @@ export interface RegraDaTurma {
   readonly limite_reprovacao: number | null
   readonly faixa_verde: number | null
   readonly faixa_amarela: number | null
-  readonly justificada_conta: boolean | null
 }
 
 /**

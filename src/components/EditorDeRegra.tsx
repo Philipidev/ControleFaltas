@@ -1,17 +1,20 @@
-import { cn } from '@/lib/cn.ts'
-
 /**
  * O nível "disciplina" da regra do curso, num formulário.
  *
- * Os dois campos são anuláveis, e vazio não é "sem regra": é "herda". Por isso
- * o que está valendo hoje aparece como marca-d'água em vez de um zero — um
- * campo em branco num formulário de regra parece defeito, e a pessoa preenche
- * só para se tranquilizar, congelando um número que devia acompanhar a turma.
+ * O campo é anulável, e vazio não é "sem regra": é "herda". Por isso o que
+ * está valendo hoje aparece como marca-d'água em vez de um zero — um campo em
+ * branco num formulário de regra parece defeito, e a pessoa preenche só para
+ * se tranquilizar, congelando um número que devia acompanhar a turma.
+ *
+ * Já houve uma segunda pergunta aqui — "quando você anexa um atestado, aquela
+ * falta sai da conta?", com três botões. Ela pedia que um aluno legislasse
+ * sobre o regimento no meio de um cadastro, e a mesma decisão aparecia com
+ * outras palavras na tela da turma e em Ajustes. Hoje não há decisão a tomar:
+ * a falta com atestado conta, e o atestado é anotação.
  */
 
 export interface RegraEditavel {
   readonly limiteReprovacao: number | null
-  readonly justificadaConta: boolean | null
 }
 
 export function EditorDeRegra({
@@ -23,7 +26,7 @@ export function EditorDeRegra({
   valor: RegraEditavel
   aoMudar: (regra: RegraEditavel) => void
   /** O que vale enquanto esta disciplina não decide, e quem decidiu. */
-  herdado: { readonly limite: number; readonly justificadaConta: boolean; readonly origem: string }
+  herdado: { readonly limite: number; readonly origem: string }
   className?: string
 }) {
   const porcento = valor.limiteReprovacao === null ? '' : String(Math.round(valor.limiteReprovacao * 100))
@@ -64,61 +67,6 @@ export function EditorDeRegra({
           <span className="text-sm font-bold text-texto-suave">% da carga horária</span>
         </span>
       </label>
-
-      <div className="mt-3">
-        <span className="mb-1.5 block text-xs font-bold text-texto-suave">
-          Quando você anexa um atestado, aquela falta sai da conta?
-        </span>
-        <div className="flex gap-2">
-          {(
-            [
-              // "Herdar" era jargão: uma usuária leu e chutou que fosse sobre
-              // atestado médico. O rótulo agora diz o que ACONTECE, e a linha
-              // abaixo diz no que isso dá hoje.
-              [null, 'Como já está'],
-              [true, 'Sai'],
-              [false, 'Continua contando'],
-            ] as const
-          ).map(([opcao, rotulo]) => (
-            <button
-              key={rotulo}
-              type="button"
-              aria-pressed={valor.justificadaConta === opcao}
-              onClick={() => {
-                aoMudar({ ...valor, justificadaConta: opcao })
-              }}
-              className={cn(
-                'flex-1 rounded-controle border-2 px-1 py-2 text-xs font-extrabold transition-colors',
-                valor.justificadaConta === opcao
-                  ? 'border-acento bg-acento-suave text-acento'
-                  : 'border-borda text-texto-suave',
-              )}
-            >
-              {rotulo}
-            </button>
-          ))}
-        </div>
-
-        <p className="mt-2 text-xs font-semibold text-texto-fraco">
-          {valor.justificadaConta === null ? (
-            <>
-              Segue a regra geral: hoje, a falta com atestado{' '}
-              <strong className="font-extrabold text-texto-suave">
-                {herdado.justificadaConta ? 'sai da conta' : 'continua contando'}
-              </strong>
-              . Se a regra mudar, esta disciplina muda junto.
-            </>
-          ) : (
-            <>
-              Só nesta disciplina: a falta com atestado{' '}
-              <strong className="font-extrabold text-texto-suave">
-                {valor.justificadaConta ? 'sai da conta' : 'continua contando'}
-              </strong>
-              , mesmo que a regra geral mude.
-            </>
-          )}
-        </p>
-      </div>
     </fieldset>
   )
 }

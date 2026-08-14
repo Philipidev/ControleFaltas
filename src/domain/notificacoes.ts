@@ -53,9 +53,12 @@ export function destinoDoAlerta(
     case 'aviso_preventivo':
       return disciplinaId === null ? null : `/disciplinas/${disciplinaId}`
 
-    // O prazo se resolve anexando o atestado, e isso vive na tela de faltas.
+    // Não há mais prazo para marcar uma falta com atestado, então este tipo
+    // não é mais produzido por ninguém. O valor continua no enum do banco
+    // porque remover valor de enum no Postgres exige recriar o tipo inteiro —
+    // caro para apagar algo que nunca foi gravado. Fica inerte.
     case 'prazo_atestado':
-      return '/faltas'
+      return null
 
     // A virada de semestre se resolve arquivando, e o arquivo mora em
     // Relatórios — junto do backup, que é o passo anterior.
@@ -123,7 +126,7 @@ export function acaoDoAlerta(tipo: TipoNotificacao): string | null {
     case 'aviso_preventivo':
       return 'Ver disciplina'
     case 'prazo_atestado':
-      return 'Anexar atestado'
+      return null
     case 'virada_semestre':
       return 'Arquivar semestre'
     case 'resumo_semanal':

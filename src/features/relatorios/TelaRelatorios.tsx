@@ -138,7 +138,7 @@ export function TelaRelatorios() {
                   {formatarHoras(c.risco.totalFaltado)} de{' '}
                   {formatarHoras(c.disciplina.cargaHorariaTotal)}
                   {c.risco.totalJustificado > 0 &&
-                    ` · ${formatarHoras(c.risco.totalJustificado)} justificadas`}
+                    ` · ${formatarHoras(c.risco.totalJustificado)} com atestado`}
                 </p>
               </li>
             ))}

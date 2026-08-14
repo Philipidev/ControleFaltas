@@ -1,10 +1,8 @@
 import {
   LIMITES_PADRAO,
-  REGRAS_PADRAO,
   ultrapassa,
   type Falta,
   type Limites,
-  type RegrasFalta,
   type Status,
 } from './tipos.ts'
 
@@ -24,11 +22,16 @@ import {
  */
 
 export interface ResumoRisco {
-  /** Horas que efetivamente contam para o cálculo. */
+  /** Horas que contam para o cálculo — todas elas, com atestado ou sem. */
   readonly totalFaltado: number
-  /** Horas de faltas justificadas (contadas à parte — §7.1). */
+  /**
+   * Quanto do total acima você tem atestado para justificar. É um subconjunto
+   * de `totalFaltado`, não uma parcela descontada dele (§7.1).
+   */
   readonly totalJustificado: number
+  /** Todas as faltas do período. */
   readonly qtdFaltas: number
+  /** Quantas delas têm atestado. Subconjunto de `qtdFaltas`. */
   readonly qtdJustificadas: number
   readonly cargaHorariaTotal: number
   /** 0..1. Multiplique por 100 para exibir. */
@@ -55,27 +58,29 @@ export function statusPara(percentual: number, limites: Limites = LIMITES_PADRAO
 }
 
 /**
- * §7.1 — quais horas entram na conta.
- * Com `justificadaConta: false` (padrão), o atestado tira a falta do cálculo
- * de risco mas ela continua registrada no contador separado.
+ * §7.1 — quais horas entram na conta: todas.
+ *
+ * Já houve uma chave aqui, e ela decidia se o atestado tirava a falta do
+ * cálculo. Ela saiu porque a resposta certa depende do regimento de cada
+ * faculdade, e na maioria delas o atestado comum NÃO abona frequência — só o
+ * regime de exercícios domiciliares faz isso. Um app que descontasse por
+ * padrão mostraria verde para quem a secretaria vê em vermelho, e errar para
+ * esse lado é o único erro que custa o semestre.
+ *
+ * O atestado continua registrado: `totalJustificado` e `qtdJustificadas`
+ * existem para isso. Ele é o seu comprovante de que o papel existe, não um
+ * desconto.
  */
-export function horasQueContam(
-  faltas: readonly Falta[],
-  regras: RegrasFalta = REGRAS_PADRAO,
-): number {
-  return faltas.reduce(
-    (soma, f) => (f.justificada && !regras.justificadaConta ? soma : soma + f.horasPerdidas),
-    0,
-  )
+export function horasQueContam(faltas: readonly Falta[]): number {
+  return faltas.reduce((soma, f) => soma + f.horasPerdidas, 0)
 }
 
 export function calcularRisco(
   cargaHorariaTotal: number,
   faltas: readonly Falta[],
   limites: Limites = LIMITES_PADRAO,
-  regras: RegrasFalta = REGRAS_PADRAO,
 ): ResumoRisco {
-  const totalFaltado = horasQueContam(faltas, regras)
+  const totalFaltado = horasQueContam(faltas)
   const justificadas = faltas.filter((f) => f.justificada)
   const totalJustificado = justificadas.reduce((s, f) => s + f.horasPerdidas, 0)
 
@@ -89,7 +94,7 @@ export function calcularRisco(
   return {
     totalFaltado,
     totalJustificado,
-    qtdFaltas: faltas.length - justificadas.length,
+    qtdFaltas: faltas.length,
     qtdJustificadas: justificadas.length,
     cargaHorariaTotal,
     percentual,

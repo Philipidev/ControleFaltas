@@ -46,13 +46,11 @@ export function RegraDaComunidade({
   const [limite, setLimite] = useState(paraPorcento(grupo.limite_reprovacao))
   const [verde, setVerde] = useState(paraPorcento(grupo.faixa_verde))
   const [amarela, setAmarela] = useState(paraPorcento(grupo.faixa_amarela))
-  const [justificada, setJustificada] = useState<boolean | null>(grupo.justificada_conta)
 
   const definiuAlgo =
     grupo.limite_reprovacao !== null ||
     grupo.faixa_verde !== null ||
-    grupo.faixa_amarela !== null ||
-    grupo.justificada_conta !== null
+    grupo.faixa_amarela !== null
 
   // Sem regra e sem poder de definir, o cartão não tem o que dizer.
   if (!definiuAlgo && !podeEditar) return null
@@ -63,7 +61,6 @@ export function RegraDaComunidade({
       limite_reprovacao: paraFracao(limite),
       faixa_verde: paraFracao(verde),
       faixa_amarela: paraFracao(amarela),
-      justificada_conta: justificada,
     }
 
     // As mesmas ordens que o CHECK do banco exige, ditas antes para a pessoa
@@ -133,16 +130,6 @@ export function RegraDaComunidade({
                 : formatarPercentual(grupo.faixa_amarela, 0)
             }
           />
-          <Linha
-            termo="Atestado desconta da carga"
-            valor={
-              grupo.justificada_conta === null
-                ? 'não definido'
-                : grupo.justificada_conta
-                  ? 'sim'
-                  : 'não'
-            }
-          />
         </dl>
       )}
 
@@ -156,38 +143,6 @@ export function RegraDaComunidade({
             valor={amarela}
             aoMudar={setAmarela}
           />
-
-          <div>
-            <span className="mb-1.5 block text-xs font-bold text-texto-suave">
-              Falta justificada desconta da carga
-            </span>
-            <div className="flex gap-2">
-              {(
-                [
-                  [null, 'Cada um decide'],
-                  [true, 'Desconta'],
-                  [false, 'Não desconta'],
-                ] as const
-              ).map(([opcao, rotulo]) => (
-                <button
-                  key={rotulo}
-                  type="button"
-                  aria-pressed={justificada === opcao}
-                  onClick={() => {
-                    setJustificada(opcao)
-                  }}
-                  className={cn(
-                    'flex-1 rounded-controle border-2 py-2 text-xs font-extrabold transition-colors',
-                    justificada === opcao
-                      ? 'border-acento bg-acento-suave text-acento'
-                      : 'border-borda text-texto-suave',
-                  )}
-                >
-                  {rotulo}
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
       )}
 

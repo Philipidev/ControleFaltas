@@ -5,7 +5,7 @@ import { REGRAS_PADRAO, type Falta } from './tipos.ts'
 
 /** §7.5 — streak de presença. */
 
-const REGRA_ATESTADO_QUEBRA = { justificadaConta: false, justificadaQuebraStreak: true }
+const REGRA_ATESTADO_QUEBRA = { justificadaQuebraStreak: true }
 
 function falta(data: string, justificada = false): Falta {
   return { id: data, disciplinaId: 'mfc', data, horasPerdidas: 4, justificada }

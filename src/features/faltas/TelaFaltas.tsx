@@ -1,19 +1,12 @@
-import { Clock, FileCheck2, Paperclip, Plus, Trash2 } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { FileCheck2, Plus, Trash2 } from 'lucide-react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router'
 
 import { Botao } from '@/components/ui/Botao.tsx'
 import { Cartao } from '@/components/ui/Cartao.tsx'
-import {
-  urlDoAtestado,
-  useEnviarAtestado,
-  useFaltas,
-  useJustificarFalta,
-  useRemoverFalta,
-} from '@/data/queries.ts'
+import { useFaltas, useJustificarFalta, useRemoverFalta } from '@/data/queries.ts'
 import type { FaltaDetalhada } from '@/data/mapeadores.ts'
 import { formatarBR, formatarRelativo } from '@/domain/data.ts'
-import { situacaoAtestado } from '@/domain/justificativa.ts'
 import { formatarHoras } from '@/domain/risco.ts'
 import type { Disciplina } from '@/domain/tipos.ts'
 import { useUsuarioId } from '@/features/auth/contexto.ts'
@@ -23,12 +16,13 @@ import { cn } from '@/lib/cn.ts'
 import { Cabecalho, Erro, Esqueleto, Vazio } from '@/layout/pecas.tsx'
 
 /**
- * §3 e §7.1 — histórico de faltas e o fluxo de atestado.
+ * §3 e §7.1 — histórico de faltas.
  *
- * A trava dos 7 dias aparece aqui de três formas: o prazo restante visível em
- * cada falta ainda justificável, o botão desabilitado depois do prazo, e a
- * mensagem explicando por quê. O banco recusaria de qualquer jeito
- * (trg_prazo_atestado) — a UI só evita que a pessoa descubra isso por um erro.
+ * O atestado aqui é um estado só, que liga e desliga. Já houve três: prazo
+ * correndo, prazo vencido e justificada, mais dois botões que se excluíam na
+ * ordem errada — "Justificar" tirava o "Anexar" da tela, e o arquivo anexado
+ * só aparecia depois de justificar. Sem prazo e sem anexo, sobra o que a
+ * pergunta sempre foi: você tem atestado para esta falta?
  */
 export function TelaFaltas({ abrirNova = false }: { abrirNova?: boolean }) {
   const usuarioId = useUsuarioId()
@@ -180,11 +174,7 @@ function ItemFalta({
 }) {
   const justificar = useJustificarFalta(usuarioId)
   const remover = useRemoverFalta(usuarioId)
-  const enviarAtestado = useEnviarAtestado(usuarioId)
-  const inputArquivo = useRef<HTMLInputElement>(null)
   const [erro, setErro] = useState<string | null>(null)
-
-  const situacao = situacaoAtestado(falta.data, hoje)
 
   return (
     <li>
@@ -212,30 +202,14 @@ function ItemFalta({
           </button>
         </div>
 
-        {/* §7.1 — o estado do atestado */}
-        <div className="mt-3 border-t border-borda pt-3">
+        {/* §7.1 — tenho atestado: anotação, não desconto */}
+        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-borda pt-3">
           {falta.justificada ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="flex items-center gap-1.5 rounded-pill bg-verde-suave px-2.5 py-1 text-xs font-bold text-verde">
+            <>
+              <span className="flex items-center gap-1.5 rounded-pill bg-acento-suave px-2.5 py-1 text-xs font-bold text-acento">
                 <FileCheck2 className="size-3.5" />
-                Justificada
+                Com atestado
               </span>
-
-              {falta.anexoPath !== null && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    void urlDoAtestado(falta.anexoPath ?? '').then((url) => {
-                      if (url !== null) window.open(url, '_blank', 'noopener')
-                    })
-                  }}
-                  className="flex items-center gap-1.5 rounded-pill bg-superficie-2 px-2.5 py-1 text-xs font-bold text-texto-suave"
-                >
-                  <Paperclip className="size-3.5" />
-                  Ver atestado
-                </button>
-              )}
-
               <button
                 type="button"
                 onClick={() => {
@@ -245,81 +219,30 @@ function ItemFalta({
               >
                 desfazer
               </button>
-            </div>
-          ) : situacao.expirado ? (
-            <p className="flex gap-2 text-xs font-semibold text-texto-fraco">
-              <Clock className="size-4 shrink-0" />
-              {situacao.mensagem}
-            </p>
+            </>
           ) : (
-            <div className="space-y-2.5">
-              <p
-                className={cn(
-                  'flex gap-2 text-xs font-bold',
-                  situacao.urgente ? 'text-amarelo' : 'text-texto-suave',
-                )}
-              >
-                <Clock className="size-4 shrink-0" />
-                {situacao.mensagem}
-              </p>
-
-              <div className="flex gap-2">
-                <Botao
-                  tamanho="sm"
-                  variante="secundario"
-                  onClick={() => {
-                    setErro(null)
-                    justificar.mutate(
-                      { faltaId: falta.id, justificada: true },
-                      {
-                        onError: (e: Error) => {
-                          setErro(e.message)
-                        },
-                      },
-                    )
-                  }}
-                  disabled={justificar.isPending}
-                >
-                  Justificar com atestado
-                </Botao>
-
-                <Botao
-                  tamanho="sm"
-                  variante="fantasma"
-                  iconeInicio={<Paperclip className="size-4" />}
-                  onClick={() => {
-                    inputArquivo.current?.click()
-                  }}
-                  disabled={enviarAtestado.isPending}
-                >
-                  Anexar
-                </Botao>
-
-                <input
-                  ref={inputArquivo}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,image/heic,application/pdf"
-                  className="hidden"
-                  onChange={(e) => {
-                    const arquivo = e.target.files?.[0]
-                    if (arquivo === undefined) return
-                    setErro(null)
-                    enviarAtestado.mutate(
-                      { faltaId: falta.id, arquivo },
-                      {
-                        onError: (err: Error) => {
-                          setErro(err.message)
-                        },
-                      },
-                    )
-                  }}
-                />
-              </div>
-            </div>
+            <Botao
+              tamanho="sm"
+              variante="secundario"
+              onClick={() => {
+                setErro(null)
+                justificar.mutate(
+                  { faltaId: falta.id, justificada: true },
+                  {
+                    onError: (e: Error) => {
+                      setErro(e.message)
+                    },
+                  },
+                )
+              }}
+              disabled={justificar.isPending}
+            >
+              Marcar com atestado
+            </Botao>
           )}
 
           {erro !== null && (
-            <p role="alert" className="mt-2 text-xs font-bold text-vermelho">
+            <p role="alert" className="w-full text-xs font-bold text-vermelho">
               {erro}
             </p>
           )}

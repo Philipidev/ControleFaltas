@@ -6,6 +6,7 @@ import {
   CircleHelp,
   CircleUser,
   House,
+  Library,
   Settings2,
   Shield,
   Trophy,
@@ -42,6 +43,9 @@ const PRINCIPAIS: readonly Destino[] = [
 ]
 
 const SECUNDARIOS: readonly Destino[] = [
+  // Ver o comentário em MenuMais: esta tela não estava em navegação nenhuma,
+  // nem aqui nem no celular. As duas listas precisam dela.
+  { para: '/disciplinas', rotulo: 'Minhas disciplinas', icone: Library },
   { para: '/alertas', rotulo: 'Alertas', icone: Bell },
   { para: '/relatorios', rotulo: 'Relatórios', icone: ChartColumn },
   { para: '/perfil', rotulo: 'Perfil', icone: CircleUser },

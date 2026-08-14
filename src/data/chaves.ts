@@ -13,6 +13,8 @@ export const chaves = {
   disciplinas: (usuarioId: string) => ['disciplinas', usuarioId] as const,
   catalogo: (curso: string, periodo: string, semestre: string) =>
     ['catalogo', curso, periodo, semestre] as const,
+  /** 0016 — as disciplinas que a própria comunidade cadastrou. */
+  disciplinasDaTurma: (grupoId: string) => ['comunidades', grupoId, 'disciplinas'] as const,
   todasDisciplinas: () => ['admin', 'disciplinas'] as const,
 
   faltas: (usuarioId: string) => ['faltas', usuarioId] as const,

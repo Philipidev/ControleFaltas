@@ -91,12 +91,7 @@ export function usePainel(usuarioId: string): Painel {
         comunidade: contexto.comunidadeDe(grupoId),
         usuario: contexto.usuario,
       })
-      const risco = calcularRisco(
-        disciplina.cargaHorariaTotal,
-        dela,
-        regra.limites,
-        regra.regras,
-      )
+      const risco = calcularRisco(disciplina.cargaHorariaTotal, dela, regra.limites)
 
       return {
         disciplina,

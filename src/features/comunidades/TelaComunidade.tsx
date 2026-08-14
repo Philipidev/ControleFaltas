@@ -2,6 +2,7 @@ import { ArrowLeft, Check, Copy, Loader2, LogOut, Mail, Shield, UserMinus, X } f
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 
+import { DisciplinasDaTurma } from './DisciplinasDaTurma.tsx'
 import { RegraDaComunidade } from './RegraDaComunidade.tsx'
 import { SemestreDaTurma } from './SemestreDaTurma.tsx'
 import { Botao } from '@/components/ui/Botao.tsx'
@@ -235,6 +236,7 @@ export function TelaComunidade() {
         {/* A regra do curso e o calendário: quem administra define, todo mundo lê. */}
         {eu?.status === 'ativo' && (
           <>
+            <DisciplinasDaTurma grupo={g} podeEditar={poderes.podeEditar} usuarioId={usuarioId} />
             <RegraDaComunidade grupo={g} podeEditar={poderes.podeEditar} usuarioId={usuarioId} />
             <SemestreDaTurma grupo={g} podeEditar={poderes.podeEditar} usuarioId={usuarioId} />
           </>
