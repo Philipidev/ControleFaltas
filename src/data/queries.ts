@@ -418,6 +418,111 @@ export function useCriarDisciplinaPersonalizada(usuarioId: string) {
   })
 }
 
+// ---------------------------------------------------------------------------
+// Disciplinas da turma — 0016
+//
+// O terceiro caso da §2: nem catálogo oficial do app, nem avulsa de uma pessoa.
+// Quem administra a comunidade cadastra as matérias dela, e todo membro ativo
+// as enxerga e se matricula. É catálogo de verdade — entra no ranking e aceita
+// a regra do curso —, só que a chave é `grupo_membros.papel` em vez de
+// `profiles.role`. O RLS de 0016 é quem garante; aqui é só conveniência.
+// ---------------------------------------------------------------------------
+
+export function useDisciplinasDaTurma(grupoId: string | null): UseQueryResult<Disciplina[]> {
+  return useQuery({
+    queryKey: chaves.disciplinasDaTurma(grupoId ?? ''),
+    enabled: grupoId !== null,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('disciplinas')
+        .select('*, disciplina_grade(dia_semana, horas, hora_inicio)')
+        .eq('grupo_id', grupoId ?? '')
+        .eq('ativa', true)
+        .order('nome')
+      if (error !== null) lancar(error)
+      return data.map(paraDisciplina)
+    },
+  })
+}
+
+export function useCriarDisciplinaDaTurma(usuarioId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (nova: {
+      grupoId: string
+      nome: string
+      cargaHorariaTotal: number
+      cor: string
+      /** Vêm da comunidade, não de quem digita: é a turma que responde por eles. */
+      curso: string
+      periodo: string
+      turma: string | null
+      semestre: string
+      grade: { dia: number; horas: number }[]
+    }) => {
+      const { data: disciplina, error: erroDisciplina } = await supabase
+        .from('disciplinas')
+        .insert({
+          nome: nova.nome,
+          curso: nova.curso,
+          periodo: nova.periodo,
+          turma: nova.turma,
+          semestre: nova.semestre,
+          carga_horaria_total: nova.cargaHorariaTotal,
+          cor: nova.cor,
+          // Não é avulsa: é da turma. O CHECK `disciplina_avulsa_sem_grupo`
+          // recusa a combinação personalizada + grupo_id.
+          personalizada: false,
+          grupo_id: nova.grupoId,
+          criado_por: usuarioId,
+        })
+        .select('id')
+        .single()
+      if (erroDisciplina !== null) lancar(erroDisciplina)
+
+      if (nova.grade.length > 0) {
+        const { error: erroGrade } = await supabase.from('disciplina_grade').insert(
+          nova.grade.map((g) => ({
+            disciplina_id: disciplina.id,
+            dia_semana: g.dia,
+            horas: g.horas,
+          })),
+        )
+        if (erroGrade !== null) lancar(erroGrade)
+      }
+
+      return disciplina.id
+    },
+    onSuccess: (_id, v) => {
+      void qc.invalidateQueries({ queryKey: chaves.disciplinasDaTurma(v.grupoId) })
+      // A tela de disciplinas oferece as da turma para matricular.
+      void qc.invalidateQueries({ queryKey: chaves.disciplinas(usuarioId) })
+    },
+  })
+}
+
+/**
+ * Apagar a disciplina da turma, não a minha matrícula.
+ *
+ * Alcança quem já se matriculou: o `on delete cascade` de `matriculas` e de
+ * `faltas` leva junto o que aquelas pessoas registraram. Por isso a tela
+ * pergunta antes, e por isso isto só aparece para quem administra.
+ */
+export function useRemoverDisciplinaDaTurma(usuarioId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ disciplinaId }: { grupoId: string; disciplinaId: string }) => {
+      const { error } = await supabase.from('disciplinas').delete().eq('id', disciplinaId)
+      if (error !== null) lancar(error)
+    },
+    onSuccess: (_r, v) => {
+      void qc.invalidateQueries({ queryKey: chaves.disciplinasDaTurma(v.grupoId) })
+      void qc.invalidateQueries({ queryKey: chaves.disciplinas(usuarioId) })
+      void qc.invalidateQueries({ queryKey: chaves.faltas(usuarioId) })
+    },
+  })
+}
+
 export function useDesmatricular(usuarioId: string) {
   const qc = useQueryClient()
   return useMutation({

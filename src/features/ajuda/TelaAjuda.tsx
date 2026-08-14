@@ -217,19 +217,39 @@ const SECOES: readonly Secao[] = [
   {
     id: 'disciplinas',
     titulo: 'Suas disciplinas',
-    resumo: 'As do catálogo e as que só você enxerga.',
+    resumo: 'De onde elas vêm, e quem pode cadastrar cada tipo.',
     icone: BookOpen,
     corpo: (
       <>
         <p>
-          As disciplinas do seu período aparecem prontas, com carga horária e grade
-          preenchidas por quem mantém o catálogo. Você só escolhe quais cursa — não precisa
-          digitar horário nenhum, e é isso que mantém o cálculo confiável.
+          A tela fica em <strong>Minhas disciplinas</strong>, no menu <strong>⋯</strong> do
+          cabeçalho ou no botão abaixo dos cartões da tela inicial. Existem três origens
+          possíveis, e a diferença entre elas é <em>quem tem a chave</em>:
+        </p>
+        <ul>
+          <li>
+            <strong>Do catálogo do seu período</strong> — cadastradas por quem administra o
+            app inteiro, com carga e grade prontas. Você só escolhe quais cursa.
+          </li>
+          <li>
+            <strong>Da sua turma</strong> — cadastradas por quem administra a comunidade, na
+            tela dela. É o caso normal de quem montou a própria turma: não precisa de
+            permissão de administrador do app.
+          </li>
+          <li>
+            <strong>Pessoal</strong> — para optativa ou curso fora da lista. Só você a
+            enxerga, e ela não entra no ranking: não haveria com quem comparar.
+          </li>
+        </ul>
+        <p>
+          As duas primeiras entram <strong>vinculadas à turma</strong> e contam no ranking; a
+          terceira, não. Nas três, faltar custa as horas da grade daquele dia.
         </p>
         <p>
-          Para uma optativa ou um curso fora da lista, existe a <strong>disciplina pessoal</strong>.
-          Aí sim você informa a carga e a grade. Ela é só sua: ninguém mais a enxerga, e ela
-          não entra no ranking da turma — não haveria com quem comparar.
+          <strong>Se a lista aparecer vazia</strong>, é porque ninguém cadastrou nada ainda
+          para o seu curso e período. Quem administra a sua turma resolve isso em Turmas →
+          a comunidade → <strong>Disciplinas da turma</strong>. Enquanto isso, a disciplina
+          pessoal funciona para o controle de faltas.
         </p>
         <p>
           No fim desse formulário aparece <strong>"Regra desta disciplina"</strong>, com o campo

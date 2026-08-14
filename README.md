@@ -43,7 +43,7 @@ avulsas, sem abrir o SQL Editor.
 
 ---
 
-## As três regras que moram no banco
+## As regras que moram no banco
 
 A interface é conveniência; a garantia é o Postgres. Se alguém trocar o app por um `curl`,
 estas continuam valendo:
@@ -53,6 +53,7 @@ estas continuam valendo:
 | **§3** — as horas vêm da grade | trigger `trg_falta_horas` | O cliente manda `horas_perdidas: 99` numa segunda de 4h; o banco grava **4**. Falta em dia sem aula é recusada. |
 | **§5** — privacidade | RLS + `get_group_ranking` | `select * from faltas` devolve só as suas. O ranking é calculado dentro do banco e devolve **apenas a colocação**. |
 | **Comunidades** — pendente não é membro | `status='ativo'` em 4 funções | Quem só pediu para entrar não lê a lista de membros, nem os perfis, nem o ranking — e não conta na guarda de 3 pessoas. |
+| **§2** — o catálogo tem dono | RLS de `disciplinas` (0016) | Membro comum não cadastra disciplina na turma nem mexe na grade dela. A grade é o preço da falta: editável por qualquer um, dava para mudar quanto a falta do colega custa. |
 
 > Havia uma terceira regra aqui, a **§7.1**: `trg_prazo_atestado` recusava justificar uma falta
 > com mais de 7 dias. A 0015 apagou o trigger. O prazo é da secretaria, não do app, e travar o
@@ -66,8 +67,34 @@ bastaria pedir para entrar numa comunidade pública para ler nome, curso e turma
 membros — **sem nunca ser aprovado**. A guarda de "mínimo 3 membros" do ranking tem o mesmo
 problema pelo avesso: dois amigos mais um convite fantasma a destravariam.
 
-`npm run db:test-rls` verifica as três atacando a API de verdade, com um usuário autenticado
-tentando o que a spec proíbe.
+`npm run db:test-rls` ataca a API de verdade, com um usuário autenticado tentando o que a
+spec proíbe.
+
+---
+
+## De quem é o catálogo
+
+A §2 supunha dois papéis: uma coordenação mantém o catálogo oficial, os alunos escolhem dele.
+Quem instala este app é um estudante que cria a própria turma — e descobria que **não podia
+cadastrar as disciplinas dela**. Escrever no catálogo pedia `profiles.role = 'admin'`, que é
+quem administra o **app**; ser dono da comunidade é `grupo_membros.papel`, outra coisa. A
+única saída era se promover a admin de tudo para cadastrar três matérias.
+
+A 0016 acrescentou o caso que faltava, em `disciplinas.grupo_id`:
+
+| `personalizada` | `grupo_id` | O que é | Quem escreve | Entra no ranking |
+|---|---|---|---|---|
+| `false` | `null` | catálogo oficial do app | `is_admin()` | sim |
+| `false` | preenchido | **disciplina da turma** | dono/admin da comunidade | sim |
+| `true` | — | avulsa/pessoal | só quem criou | não |
+
+A do meio é catálogo de verdade: aceita a regra do curso da comunidade, entra no ranking e é
+a mesma para todo mundo da turma. O que muda é só de quem é a chave. Um `CHECK` recusa
+`personalizada` com `grupo_id` — as duas coisas ao mesmo tempo não querem dizer nada, e
+criariam uma disciplina que o ranking conta e a leitura trata como privada.
+
+Apagar a comunidade **não apaga as disciplinas** (`on delete set null`): levaria junto as
+matrículas e as faltas de cada membro por cascade.
 
 ---
 
@@ -137,6 +164,7 @@ mão de um colega.
 supabase/migrations/   0001 tabelas · 0002 triggers · 0003 RLS · 0004 ranking · 0005 storage
                        0006 comunidades · 0007 RPCs das comunidades
                        0013 regra do curso em cascata · 0014 semestre da turma
+                       0015 atestado vira anotação · 0016 disciplinas da turma
                        0015 atestado vira anotação (e desfaz a 0005)
 src/domain/            matemática da spec — TypeScript puro, sem React e sem rede
 src/data/              repositório tipado + hooks TanStack Query (nenhuma tela importa supabase)

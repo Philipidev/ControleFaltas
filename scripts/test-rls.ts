@@ -563,6 +563,73 @@ async function testarComunidades(marina: Sessao, bia: Sessao): Promise<void> {
       `o limite ficou ${String(regraDaDona?.limite_reprovacao)}`,
     )
 
+    // ---- 8b. as disciplinas da turma são de quem administra (0016) ---------
+    // A 0016 abriu uma terceira porta para escrever no catálogo: quem
+    // administra a comunidade cadastra as disciplinas DELA. A porta precisa ser
+    // estreita — se um membro comum passasse, ele criaria matéria na turma dos
+    // outros, e pior: mexeria na GRADE, que é o preço da falta (§3).
+    const nova = {
+      nome: 'Ataque RLS',
+      curso: 'Medicina',
+      periodo: '5',
+      semestre: '2026.2',
+      carga_horaria_total: 60,
+      personalizada: false,
+      grupo_id: gFechada,
+    }
+
+    const { error: erroMembroCria } = await bia.cliente.from('disciplinas').insert(nova)
+    checar(
+      'membro comum não cadastra disciplina na turma',
+      erroMembroCria !== null,
+      'o insert passou',
+    )
+
+    const { error: erroIntrusoCria } = await intruso.cliente.from('disciplinas').insert(nova)
+    checar(
+      'quem só pediu para entrar não cadastra disciplina na turma',
+      erroIntrusoCria !== null,
+      'o insert passou',
+    )
+
+    const { data: criada, error: erroDonaCria } = await marina.cliente
+      .from('disciplinas')
+      .insert(nova)
+      .select('id')
+      .single()
+
+    checar(
+      'quem administra cadastra disciplina na turma',
+      erroDonaCria === null,
+      erroDonaCria === null ? '' : erroDonaCria.message,
+    )
+
+    if (erroDonaCria === null) {
+      // A grade é o preço da falta. Editável por membro comum, dava para mudar
+      // quanto a falta do colega custa.
+      const { error: erroGradeMembro } = await bia.cliente
+        .from('disciplina_grade')
+        .insert({ disciplina_id: criada.id, dia_semana: 1, horas: 99 })
+      checar(
+        'membro comum não mexe na grade da disciplina da turma',
+        erroGradeMembro !== null,
+        'o insert na grade passou',
+      )
+
+      // E o intruso pendente não enxerga nem que ela existe.
+      const { data: vistaPeloIntruso } = await intruso.cliente
+        .from('disciplinas')
+        .select('id')
+        .eq('id', criada.id)
+      checar(
+        'pendente não lê as disciplinas da turma',
+        (vistaPeloIntruso ?? []).length === 0,
+        `viu ${String((vistaPeloIntruso ?? []).length)}`,
+      )
+
+      await admin.from('disciplinas').delete().eq('id', criada.id)
+    }
+
     // ---- 9. o atestado é anotação: não muda soma nem colocação ------------
     // A 0013 tinha fechado um bug em que get_group_ranking somava as horas de
     // cada membro sob o `justificada_conta` DELE. A 0015 foi além e apagou a

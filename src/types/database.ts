@@ -227,6 +227,8 @@ export type Database = {
            * geral (estágio, por exemplo).
            */
           limite_reprovacao: number | null
+          /** 0016: a comunidade dona desta disciplina. NULL = catálogo oficial. */
+          grupo_id: string | null
         }
         Insert: {
           id?: string
@@ -242,6 +244,7 @@ export type Database = {
           personalizada?: boolean
           ativa?: boolean
           limite_reprovacao?: number | null
+          grupo_id?: string | null
         }
         Update: {
           nome?: string
@@ -254,6 +257,7 @@ export type Database = {
           cor?: string
           ativa?: boolean
           limite_reprovacao?: number | null
+          grupo_id?: string | null
         }
         Relationships: [
           {
