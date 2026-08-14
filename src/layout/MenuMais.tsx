@@ -5,6 +5,7 @@ import {
   CircleHelp,
   CircleUser,
   Ellipsis,
+  Library,
   Settings2,
   Shield,
   X,
@@ -33,6 +34,10 @@ interface Item {
 }
 
 const ITENS: readonly Item[] = [
+  // Primeiro porque era a única sem saída nenhuma: o botão que levava até ela
+  // vivia dentro do estado vazio da tela inicial, e sumia junto com ele na
+  // primeira disciplina cadastrada. Quem quisesse a segunda não tinha caminho.
+  { para: '/disciplinas', rotulo: 'Minhas disciplinas', icone: Library },
   { para: '/alertas', rotulo: 'Alertas', icone: Bell },
   { para: '/relatorios', rotulo: 'Relatórios', icone: ChartColumn },
   // Perfil carrega o botão de sair da conta. No celular esta folha é o único

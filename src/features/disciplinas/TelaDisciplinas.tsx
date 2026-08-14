@@ -1,4 +1,4 @@
-import { Check, Plus, Trash2, Users, X } from 'lucide-react'
+import { Check, Info, Plus, Trash2, Users, X } from 'lucide-react'
 import { useState } from 'react'
 
 import { FormularioPersonalizada } from './FormularioPersonalizada.tsx'
@@ -229,12 +229,28 @@ export function TelaDisciplinas() {
           </section>
         )}
 
-        {disponiveis.length === 0 && catalogo.isSuccess && matriculadas.length > 0 && (
-          <p className="flex items-center justify-center gap-2 text-sm font-semibold text-texto-fraco">
-            <Check className="size-4" />
-            Você já está em todas as disciplinas do seu período.
-          </p>
-        )}
+        {/*
+          Duas situações davam a MESMA frase, e uma delas era mentira: sem
+          catálogo cadastrado para o curso/período, `disponiveis` também é
+          vazio, e a tela dizia "você já está em todas" para quem não estava em
+          nenhuma. Quem usa o app sozinho, sem admin alimentando o catálogo, via
+          isso como "não há mais nada a fazer aqui".
+        */}
+        {disponiveis.length === 0 &&
+          catalogo.isSuccess &&
+          matriculadas.length > 0 &&
+          (catalogo.data.length === 0 ? (
+            <p className="flex items-center justify-center gap-2 text-center text-sm font-semibold text-texto-fraco">
+              <Info className="size-4 shrink-0" />
+              Não há catálogo cadastrado para {perfil.data?.curso ?? 'seu curso'} ·{' '}
+              {perfil.data?.periodo ?? 'seu período'} · {semestre}. Crie as suas abaixo.
+            </p>
+          ) : (
+            <p className="flex items-center justify-center gap-2 text-sm font-semibold text-texto-fraco">
+              <Check className="size-4 shrink-0" />
+              Você já está em todas as disciplinas do seu período.
+            </p>
+          ))}
 
         <section>
           {criando ? (
